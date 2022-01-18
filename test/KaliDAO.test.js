@@ -1357,6 +1357,85 @@ describe("KaliDAO", function () {
       await kali.transfer(receiver.address, getBigNumber(1)).should.be.reverted
     )
   })
+  it.only("Should allow a member to burn shares", async function () {
+    let sender, receiver
+    ;[sender, receiver] = await ethers.getSigners()
+
+    await kali.init(
+      "KALI",
+      "KALI",
+      "DOCS",
+      true,
+      [],
+      [],
+      [sender.address],
+      [getBigNumber(10)],
+      30,
+      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    )
+    await kali.burn(getBigNumber(1))
+  })
+  it.only("Should not allow a member to burn excess shares", async function () {
+    let sender, receiver
+    ;[sender, receiver] = await ethers.getSigners()
+
+    await kali.init(
+      "KALI",
+      "KALI",
+      "DOCS",
+      true,
+      [],
+      [],
+      [sender.address],
+      [getBigNumber(10)],
+      30,
+      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    )
+    expect(
+      await kali.burn(getBigNumber(11)).should.be.reverted
+    )
+  })
+  it.only("Should allow a member to approve burn of shares (burnFrom)", async function () {
+    let sender, receiver
+    ;[sender, receiver] = await ethers.getSigners()
+
+    await kali.init(
+      "KALI",
+      "KALI",
+      "DOCS",
+      true,
+      [],
+      [],
+      [sender.address],
+      [getBigNumber(10)],
+      30,
+      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    )
+    await kali.approve(receiver.address, getBigNumber(1))
+    expect(await kali.allowance(sender.address, receiver.address)).to.equal(getBigNumber(1))
+    await kali.connect(receiver).burnFrom(sender.address, getBigNumber(1))
+  })
+  it.only("Should not allow a member to approve excess burn of shares (burnFrom)", async function () {
+    let sender, receiver
+    ;[sender, receiver] = await ethers.getSigners()
+
+    await kali.init(
+      "KALI",
+      "KALI",
+      "DOCS",
+      true,
+      [],
+      [],
+      [sender.address],
+      [getBigNumber(10)],
+      30,
+      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    )
+    await kali.approve(receiver.address, getBigNumber(1))
+    expect(await kali.allowance(sender.address, receiver.address)).to.equal(getBigNumber(1))
+    expect(await kali.connect(receiver).burnFrom(sender.address, getBigNumber(8)).should.be.reverted)
+    expect(await kali.connect(receiver).burnFrom(sender.address, getBigNumber(11)).should.be.reverted)
+  })
   it("Should allow a member to approve pull transfers", async function () {
     let sender, receiver
     ;[sender, receiver] = await ethers.getSigners()
