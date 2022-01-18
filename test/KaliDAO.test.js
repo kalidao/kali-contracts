@@ -1357,7 +1357,7 @@ describe("KaliDAO", function () {
       await kali.transfer(receiver.address, getBigNumber(1)).should.be.reverted
     )
   })
-  it.only("Should allow a member to burn shares", async function () {
+  it("Should allow a member to burn shares", async function () {
     let sender, receiver
     ;[sender, receiver] = await ethers.getSigners()
 
@@ -1375,7 +1375,7 @@ describe("KaliDAO", function () {
     )
     await kali.burn(getBigNumber(1))
   })
-  it.only("Should not allow a member to burn excess shares", async function () {
+  it("Should not allow a member to burn excess shares", async function () {
     let sender, receiver
     ;[sender, receiver] = await ethers.getSigners()
 
@@ -1395,7 +1395,7 @@ describe("KaliDAO", function () {
       await kali.burn(getBigNumber(11)).should.be.reverted
     )
   })
-  it.only("Should allow a member to approve burn of shares (burnFrom)", async function () {
+  it("Should allow a member to approve burn of shares (burnFrom)", async function () {
     let sender, receiver
     ;[sender, receiver] = await ethers.getSigners()
 
@@ -1415,7 +1415,7 @@ describe("KaliDAO", function () {
     expect(await kali.allowance(sender.address, receiver.address)).to.equal(getBigNumber(1))
     await kali.connect(receiver).burnFrom(sender.address, getBigNumber(1))
   })
-  it.only("Should not allow a member to approve excess burn of shares (burnFrom)", async function () {
+  it("Should not allow a member to approve excess burn of shares (burnFrom)", async function () {
     let sender, receiver
     ;[sender, receiver] = await ethers.getSigners()
 
@@ -1532,6 +1532,21 @@ describe("KaliDAO", function () {
       await kali.getPriorVotes(bob.address, 1941275221).should.be.reverted
     )
   })
+  it("Should list member as 'delegate' if no delegation to others", async function () {
+    await kali.init(
+      "KALI",
+      "KALI",
+      "DOCS",
+      true,
+      [],
+      [],
+      [bob.address],
+      [getBigNumber(10)],
+      30,
+      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    )
+    expect(await kali.delegates(bob.address)).to.equal(bob.address)
+  })
   it("Should match current votes to undelegated balance", async function () {
     await kali.init(
       "KALI",
@@ -1564,11 +1579,13 @@ describe("KaliDAO", function () {
       [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     await kali.delegate(receiver.address)
+    expect(await kali.delegates(sender.address)).to.equal(receiver.address)
     expect(await kali.getCurrentVotes(sender.address)).to.equal(0)
     expect(await kali.getCurrentVotes(receiver.address)).to.equal(getBigNumber(10))
     expect(await kali.balanceOf(sender.address)).to.equal(getBigNumber(10))
     expect(await kali.balanceOf(receiver.address)).to.equal(0)
     await kali.delegate(sender.address)
+    expect(await kali.delegates(sender.address)).to.equal(sender.address)
     expect(await kali.getCurrentVotes(sender.address)).to.equal(getBigNumber(10))
     expect(await kali.getCurrentVotes(receiver.address)).to.equal(0)
   })
@@ -1625,7 +1642,7 @@ describe("KaliDAO", function () {
     await kali.delegate(sender.address)
     expect(await kali.getCurrentVotes(sender.address)).to.equal(getBigNumber(5))
   })
-  it("permit should work if the signature is valid", async () => {
+  it("Should allow permit if the signature is valid", async () => {
     await kali.init(
       "KALI",
       "KALI",
@@ -1692,7 +1709,7 @@ describe("KaliDAO", function () {
     // )
     expect(await kali.balanceOf(bob.address)).to.equal(getBigNumber(1))
   })
-  it("permit should revert if the signature is invalid", async () => {
+  it("Should revert permit if the signature is invalid", async () => {
     await kali.init(
       "KALI",
       "KALI",
@@ -1710,7 +1727,7 @@ describe("KaliDAO", function () {
       kali.permit(proposer.address, bob.address, getBigNumber(1), 1941525801, 0, rs, rs).should.be.reverted
     )
   })
-  it("delegateBySig should work if the signature is valid", async () => {
+  it("Should allow delegateBySig if the signature is valid", async () => {
     await kali.init(
       "KALI",
       "KALI",
@@ -1747,7 +1764,7 @@ describe("KaliDAO", function () {
 
     kali.delegateBySig(bob.address, 0, 1941525801, v, r, s)
   })
-  it("delegateBySig should revert if the signature is invalid", async () => {
+  it("Should revert delegateBySig if the signature is invalid", async () => {
     await kali.init(
       "KALI",
       "KALI",
