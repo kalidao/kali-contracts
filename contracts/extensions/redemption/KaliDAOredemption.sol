@@ -10,95 +10,94 @@ import '../../utils/ReentrancyGuard.sol';
 contract KaliDAOredemption is ReentrancyGuard {
     using SafeTransferLib for address;
 
-    event ExtensionSet(address indexed dao, address[] tokens, uint256 indexed redemptionStart);
+    event ExtensionSet(address indexed dao, address[] redemptionTokens, uint32 redemptionStarts, bool votesRedeemable);
 
     event ExtensionCalled(address indexed dao, address indexed member, uint256 indexed amountBurned);
 
-    event TokensAdded(address indexed dao, address[] tokens);
-
-    event TokensRemoved(address indexed dao, uint256[] tokenIndex);
-
-    error NullTokens();
-
     error NotStarted();
 
-    mapping(address => address[]) public redeemables;
+    mapping(address => Redemption) public redemptions;
 
-    mapping(address => uint256) public redemptionStarts;
+    struct Redemption {
+        address[] redemptionTokens;
+        uint32 redemptionStarts;
+        bool votesRedeemable;
+    }
 
-    function getRedeemables(address dao) public view virtual returns (address[] memory tokens) {
-        tokens = redeemables[dao];
+    function getRedeemables(address dao) public view virtual returns (address[] memory) {
+        return redemptions[dao].redemptionTokens;
     }
 
     function setExtension(bytes calldata extensionData) public nonReentrant virtual {
-        (address[] memory tokens, uint256 redemptionStart) = abi.decode(extensionData, (address[], uint256));
+        (address[] memory redemptionTokens, uint32 redemptionStarts, bool votesRedeemable) 
+            = abi.decode(extensionData, (address[], uint32, bool));
 
-        if (tokens.length == 0) revert NullTokens();
+        redemptions[msg.sender] = Redemption({
+            redemptionTokens: redemptionTokens,
+            redemptionStarts: redemptionStarts,
+            votesRedeemable: votesRedeemable
+        });
 
-        // if redeemables are already set, this call will be interpreted as reset
-        if (redeemables[msg.sender].length != 0) delete redeemables[msg.sender];
-        
-        // cannot realistically overflow on human timescales
-        unchecked {
-            for (uint256 i; i < tokens.length; i++) {
-                redeemables[msg.sender].push(tokens[i]);
-            }
-        }
-
-        redemptionStarts[msg.sender] = redemptionStart;
-
-        emit ExtensionSet(msg.sender, tokens, redemptionStart);
+        emit ExtensionSet(msg.sender, redemptionTokens, redemptionStarts, votesRedeemable);
     }
 
     function callExtension(
-        address account, 
-        uint256 amount, 
-        bytes calldata
-    ) public nonReentrant virtual returns (bool mint, uint256 amountOut) {
-        if (block.timestamp < redemptionStarts[msg.sender]) revert NotStarted();
+        address dao, 
+        address[] calldata tokensToRedeem, 
+        uint256[] calldata redemptionAmounts,
+        uint256 votesToRedeem
+    ) public nonReentrant virtual {
+        Redemption storage redmn = redemptions[dao];
 
-        for (uint256 i; i < redeemables[msg.sender].length; i++) {
+        if (block.timestamp < redmn.redemptionStarts) revert NotStarted();
+
+        uint256 amount;
+
+        uint256 totalSupply;
+
+        if (redmn.votesRedeemable) {
+            IERC20minimal(dao).burnFrom(msg.sender, votesToRedeem);
+
+            amount += votesToRedeem;
+
+            totalSupply += IERC20minimal(dao).totalSupply();
+        }
+
+        if (tokensToRedeem.length != 0) {
+            for (uint256 i; i < redmn.redemptionTokens.length;) {
+                IERC20minimal(tokensToRedeem[i]).burnFrom(msg.sender, redemptionAmounts[i]);
+                
+                amount += redemptionAmounts[i];
+
+                totalSupply += IERC20minimal(tokensToRedeem[i]).totalSupply();
+
+                unchecked {
+                    i++;
+                }
+            }
+        }
+
+        for (uint256 i; i < tokensToRedeem.length;) {
             // calculate fair share of given token for redemption
             uint256 amountToRedeem = amount * 
-                IERC20minimal(redeemables[msg.sender][i]).balanceOf(msg.sender) / 
-                IERC20minimal(msg.sender).totalSupply();
+                IERC20minimal(tokensToRedeem[i]).balanceOf(dao) / 
+                totalSupply;
             
             // `transferFrom` DAO to redeemer
             if (amountToRedeem != 0) {
-                address(redeemables[msg.sender][i])._safeTransferFrom(
+                tokensToRedeem[i]._safeTransferFrom(
+                    dao, 
                     msg.sender, 
-                    account, 
                     amountToRedeem
                 );
             }
-        }
 
-        // placeholder values to conform to interface and disclaim mint
-        (mint, amountOut) = (false, amount);
-
-        emit ExtensionCalled(msg.sender, account, amount);
-    }
-
-    function addTokens(address[] calldata tokens) public nonReentrant virtual {
-        // cannot realistically overflow on human timescales
-        unchecked {
-            for (uint256 i; i < tokens.length; i++) {
-                redeemables[msg.sender].push(tokens[i]);
+            unchecked {
+                i++;
             }
         }
 
-        emit TokensAdded(msg.sender, tokens);
-    }
 
-    function removeTokens(uint256[] calldata tokenIndex) public nonReentrant virtual {
-        for (uint256 i; i < tokenIndex.length; i++) {
-            // move last token to replace indexed spot and pop array to remove last token
-            redeemables[msg.sender][tokenIndex[i]] = 
-                redeemables[msg.sender][redeemables[msg.sender].length - 1];
-
-            redeemables[msg.sender].pop();
-        }
-
-        emit TokensRemoved(msg.sender, tokenIndex);
+        emit ExtensionCalled(dao, msg.sender, amount);
     }
 }
