@@ -3,7 +3,7 @@
 pragma solidity >=0.8.4;
 
 import '../../libraries/SafeTransferLib.sol';
-import './interfaces/IKaliDAOtribute.sol';
+import '../../interfaces/IKaliDAOtribute.sol';
 import '../../utils/Multicall.sol';
 import '../../utils/ReentrancyGuard.sol';
 
