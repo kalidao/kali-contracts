@@ -30,7 +30,6 @@ interface IKaliDAOtribute {
     }
 
     struct ProposalState {
-        uint256 sponsoredProposal;
         bool passed;
         bool processed;
     }
