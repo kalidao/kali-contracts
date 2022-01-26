@@ -7,4 +7,6 @@ interface IERC20minimal {
     function balanceOf(address account) external view returns (uint256);
 
     function totalSupply() external view returns (uint256);
+
+    function burnFrom(address from, uint256 amount) external;
 }
