@@ -4,10 +4,44 @@ pragma solidity >=0.8.4;
 
 import '../utils/Multicall.sol';
 
+// @dev library adapted from https://github.com/miguelmota/merkletreejs[merkletreejs].
+library MerkleProof {
+    /**
+     * @dev Returns true if a `leaf` can be proved to be a part of a Merkle tree
+     * defined by `root`. For this, a `proof` must be provided, containing
+     * sibling hashes on the branch from the leaf to the root of the tree. Each
+     * pair of leaves and each pair of pre-images are assumed to be sorted.
+     */
+    function verify(
+        bytes32[] memory proof,
+        bytes32 root,
+        bytes32 leaf
+    ) internal pure returns (bool) {
+        bytes32 computedHash = leaf;
+
+        for (uint256 i = 0; i < proof.length; i++) {
+            bytes32 proofElement = proof[i];
+
+            if (computedHash <= proofElement) {
+                // Hash(current computed hash + current element of the proof)
+                computedHash = keccak256(abi.encodePacked(computedHash, proofElement));
+            } else {
+                // Hash(current element of the proof + current computed hash)
+                computedHash = keccak256(abi.encodePacked(proofElement, computedHash));
+            }
+        }
+
+        // Check if the computed hash (root) is equal to the provided root
+        return computedHash == root;
+    }
+}
+
 /// @notice Kali DAO whitelist manager.
-/// @author Modified from SushiSwap 
+/// @author Modified from SushiSwap
 /// (https://github.com/sushiswap/trident/blob/master/contracts/pool/franchised/WhiteListManager.sol)
 contract KaliWhitelistManager {
+    using MerkleProof for bytes32[];
+
     /*///////////////////////////////////////////////////////////////
                             EVENTS
     //////////////////////////////////////////////////////////////*/
@@ -15,10 +49,10 @@ contract KaliWhitelistManager {
     event WhitelistCreated(uint256 indexed listId, address indexed operator);
 
     event AccountWhitelisted(uint256 indexed listId, address indexed account, bool approved);
-    
+
     event MerkleRootSet(uint256 indexed listId, bytes32 merkleRoot);
-    
-    event WhitelistJoined(uint256 indexed listId, uint256 indexed index, address indexed account);
+
+    event WhitelistJoined(uint256 indexed listId, address indexed account);
 
     /*///////////////////////////////////////////////////////////////
                             ERRORS
@@ -36,7 +70,9 @@ contract KaliWhitelistManager {
 
     error WhitelistClaimed();
 
-    error NotRooted();
+    error InvalidWhiteList();
+
+    error NotOnWhitelist();
 
     /*///////////////////////////////////////////////////////////////
                             EIP-712 STORAGE
@@ -46,7 +82,7 @@ contract KaliWhitelistManager {
 
     bytes32 internal immutable INITIAL_DOMAIN_SEPARATOR;
 
-    bytes32 internal constant WHITELIST_TYPEHASH = 
+    bytes32 internal constant WHITELIST_TYPEHASH =
         keccak256('Whitelist(address account,bool approved,uint256 deadline)');
 
     /*///////////////////////////////////////////////////////////////
@@ -54,12 +90,10 @@ contract KaliWhitelistManager {
     //////////////////////////////////////////////////////////////*/
 
     mapping(uint256 => address) public operatorOf;
-    
+
     mapping(uint256 => bytes32) public merkleRoots;
 
     mapping(uint256 => mapping(address => bool)) public whitelistedAccounts;
-
-    mapping(uint256 => mapping(uint256 => uint256)) internal whitelistedBitmaps;
 
     /*///////////////////////////////////////////////////////////////
                             CONSTRUCTOR
@@ -67,7 +101,7 @@ contract KaliWhitelistManager {
 
     constructor() {
         INITIAL_CHAIN_ID = block.chainid;
-        
+
         INITIAL_DOMAIN_SEPARATOR = _computeDomainSeparator();
     }
 
@@ -80,7 +114,7 @@ contract KaliWhitelistManager {
     }
 
     function _computeDomainSeparator() internal view virtual returns (bytes32) {
-        return 
+        return
             keccak256(
                 abi.encode(
                     keccak256('EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)'),
@@ -91,13 +125,13 @@ contract KaliWhitelistManager {
                 )
             );
     }
- 
+
     /*///////////////////////////////////////////////////////////////
                             WHITELIST LOGIC
     //////////////////////////////////////////////////////////////*/
 
     function createWhitelist(
-        uint256 listId, 
+        uint256 listId,
         address[] calldata accounts,
         bytes32 merkleRoot
     ) public virtual {
@@ -124,22 +158,14 @@ contract KaliWhitelistManager {
             emit MerkleRootSet(listId, merkleRoot);
         }
     }
-    
-    function isWhitelisted(uint256 listId, uint256 index) public view virtual returns (bool) {
-        uint256 whitelistedWordIndex = index / 256;
 
-        uint256 whitelistedBitIndex = index % 256;
-
-        uint256 claimedWord = whitelistedBitmaps[listId][whitelistedWordIndex];
-
-        uint256 mask = 1 << whitelistedBitIndex;
-
-        return claimedWord & mask == mask;
+    function isWhitelisted(uint256 listId, address account) public view virtual returns (bool) {
+        return whitelistedAccounts[listId][account];
     }
 
     function whitelistAccounts(
-        uint256 listId, 
-        address[] calldata accounts, 
+        uint256 listId,
+        address[] calldata accounts,
         bool[] calldata approvals
     ) public virtual {
         if (msg.sender != operatorOf[listId]) revert NotOperator();
@@ -194,7 +220,7 @@ contract KaliWhitelistManager {
 
     function setMerkleRoot(uint256 listId, bytes32 merkleRoot) public virtual {
         if (msg.sender != operatorOf[listId]) revert NotOperator();
-        
+
         merkleRoots[listId] = merkleRoot;
 
         emit MerkleRootSet(listId, merkleRoot);
@@ -202,50 +228,18 @@ contract KaliWhitelistManager {
 
     function joinWhitelist(
         uint256 listId,
-        uint256 index,
         address account,
         bytes32[] calldata merkleProof
     ) public virtual {
-        if (isWhitelisted(listId, index)) revert WhitelistClaimed();
+        if (isWhitelisted(listId, account)) revert WhitelistClaimed();
 
-        bytes32 computedHash;
+        if (merkleRoots[listId] == 0) revert InvalidWhiteList();
 
-        assembly {
-            mstore(0x00, index)
-            mstore(0x20, account)
-            computedHash := keccak256(0x00, 0x40)
-        }
-
-        for (uint256 i = 0; i < merkleProof.length; i++) {
-            bytes32 proofElement = merkleProof[i];
-
-            if (computedHash <= proofElement) {
-                computedHash = _efficientHash(computedHash, proofElement);
-            } else {
-                computedHash = _efficientHash(proofElement, computedHash);
-            }
-        }
-
-        if (computedHash != merkleRoots[listId]) revert NotRooted();
-
-        uint256 whitelistedWordIndex = index / 256;
-
-        uint256 whitelistedBitIndex = index % 256;
-
-        whitelistedBitmaps[listId][whitelistedWordIndex] = whitelistedBitmaps[listId][whitelistedWordIndex] 
-            | (1 << whitelistedBitIndex);
+        if (!merkleProof.verify(merkleRoots[listId], keccak256(abi.encodePacked(account)))) revert NotOnWhitelist();
 
         _whitelistAccount(listId, account, true);
 
-        emit WhitelistJoined(listId, index, account);
+        emit WhitelistJoined(listId, account);
     }
 
-    /// @dev modified from OpenZeppelin (https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/cryptography/MerkleProof.sol)
-    function _efficientHash(bytes32 a, bytes32 b) internal pure virtual returns (bytes32 value) {
-        assembly {
-            mstore(0x00, a)
-            mstore(0x20, b)
-            value := keccak256(0x00, 0x40)
-        }
-    }
 }
