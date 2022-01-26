@@ -486,34 +486,56 @@ contract KaliDAO is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
     }
     
     /*///////////////////////////////////////////////////////////////
-                            UTILITIES 
+                            EXTENSIONS 
     //////////////////////////////////////////////////////////////*/
-    
-    receive() external payable virtual {}
-    
+
+    modifier onlyExtension {
+        if (!extensions[msg.sender]) revert NotExtension();
+
+        _;
+    }
+
     function callExtension(
         address extension, 
         uint256 amount, 
         bytes calldata extensionData
     ) public payable nonReentrant virtual returns (bool mint, uint256 amountOut) {
-        if (!extensions[extension] && !extensions[msg.sender]) revert NotExtension();
+        if (!extensions[extension]) revert NotExtension();
         
-        address account;
-
-        if (extensions[msg.sender]) {
-            account = extension;
-            amountOut = amount;
-            mint = abi.decode(extensionData, (bool));
-        } else {
-            account = msg.sender;
-            (mint, amountOut) = IKaliDAOextension(extension).callExtension{value: msg.value}
-                (msg.sender, amount, extensionData);
-        }
+        (mint, amountOut) = IKaliDAOextension(extension).callExtension{value: msg.value}
+            (msg.sender, amount, extensionData);
         
         if (mint) {
-            if (amountOut != 0) _mint(account, amountOut); 
+            if (amountOut != 0) _mint(msg.sender, amountOut); 
         } else {
-            if (amountOut != 0) _burn(account, amount);
+            if (amountOut != 0) _burn(msg.sender, amount);
         }
+    }
+
+    function mintShares(address to, uint256 amount) public onlyExtension virtual {
+        _mint(to, amount);
+    }
+
+    function burnShares(address from, uint256 amount) public onlyExtension virtual {
+        _burn(from, amount);
+    }
+
+    function updateGovernance(
+        uint32 votingPeriod_, 
+        uint8 quorum_, 
+        uint8 supermajority_,
+        bool flipPause
+    ) public onlyExtension virtual {
+        if (votingPeriod_ != 0 && votingPeriod_ <= 365 days) votingPeriod = votingPeriod_;
+
+        if (quorum_ <= 100) quorum = quorum_;
+
+        if (supermajority_ > 51 && supermajority_ <= 100) supermajority = supermajority_;
+
+        if (flipPause) _flipPause();
+    }
+
+    function updateExtension(address extension) public onlyExtension virtual {
+        extensions[extension] = !extensions[extension];
     }
 }
