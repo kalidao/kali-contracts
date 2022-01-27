@@ -58,10 +58,6 @@ contract KaliWhitelistManager {
                             ERRORS
     //////////////////////////////////////////////////////////////*/
 
-    error NullId();
-
-    error IdExists();
-
     error NotOperator();
 
     error SignatureExpired();
@@ -95,6 +91,8 @@ contract KaliWhitelistManager {
 
     mapping(uint256 => mapping(address => bool)) public whitelistedAccounts;
 
+    uint256 public listCount;
+
     /*///////////////////////////////////////////////////////////////
                             CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
@@ -103,6 +101,8 @@ contract KaliWhitelistManager {
         INITIAL_CHAIN_ID = block.chainid;
 
         INITIAL_DOMAIN_SEPARATOR = _computeDomainSeparator();
+
+        listCount = 0;
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -131,13 +131,12 @@ contract KaliWhitelistManager {
     //////////////////////////////////////////////////////////////*/
 
     function createWhitelist(
-        uint256 listId,
         address[] calldata accounts,
         bytes32 merkleRoot
     ) public virtual {
-        if (listId == 0) revert NullId();
+        listCount++;
 
-        if (operatorOf[listId] != address(0)) revert IdExists();
+        uint256 listId = listCount;
 
         operatorOf[listId] = msg.sender;
 
