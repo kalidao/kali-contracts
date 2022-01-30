@@ -14,7 +14,15 @@ contract KaliDAO is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
                             EVENTS
     //////////////////////////////////////////////////////////////*/
 
-    event NewProposal(address indexed proposer, uint256 indexed proposal);
+    event NewProposal(
+        address indexed proposer, 
+        uint256 indexed proposal, 
+        ProposalType indexed proposalType, 
+        string description, 
+        address[] accounts, 
+        uint256[] amounts, 
+        bytes[] payloads
+    );
 
     event ProposalCancelled(address indexed proposer, uint256 indexed proposal);
 
@@ -271,7 +279,7 @@ contract KaliDAO is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
 
         if (selfSponsor) currentSponsoredProposal = proposal;
 
-        emit NewProposal(msg.sender, proposal);
+        emit NewProposal(msg.sender, proposal, proposalType, description, accounts, amounts, payloads);
     }
 
     function cancelProposal(uint256 proposal) public nonReentrant virtual {
