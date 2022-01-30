@@ -30,7 +30,7 @@ contract KaliDAO is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
 
     error Initialized();
 
-    error VotingPeriodBounds();
+    error PeriodBounds();
 
     error QuorumMax();
 
@@ -70,9 +70,11 @@ contract KaliDAO is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
 
     uint32 public votingPeriod;
 
-    uint8 public quorum; // 1-100
+    uint32 public gracePeriod;
 
-    uint8 public supermajority; // 1-100
+    uint32 public quorum; // 1-100
+
+    uint32 public supermajority; // 1-100
     
     bytes32 public constant VOTE_HASH = 
         keccak256('SignVote(address signer,uint256 proposal,bool approve)');
@@ -93,7 +95,8 @@ contract KaliDAO is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
         MINT, // add membership
         BURN, // revoke membership
         CALL, // call contracts
-        PERIOD, // set `votingPeriod`
+        VPERIOD, // set `votingPeriod`
+        GPERIOD, // set `gracePeriod`
         QUORUM, // set `quorum`
         SUPERMAJORITY, // set `supermajority`
         TYPE, // set `VoteType` to `ProposalType`
@@ -141,18 +144,19 @@ contract KaliDAO is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
         bytes[] memory extensionsData_,
         address[] calldata voters_,
         uint256[] calldata shares_,
-        uint32 votingPeriod_,
-        uint8[13] memory govSettings_
+        uint32[16] memory govSettings_
     ) public payable nonReentrant virtual {
         if (extensions_.length != extensionsData_.length) revert NoArrayParity();
 
         if (votingPeriod != 0) revert Initialized();
 
-        if (votingPeriod_ == 0 || votingPeriod_ > 365 days) revert VotingPeriodBounds();
+        if (govSettings_[0] == 0 || govSettings_[0] > 365 days) revert PeriodBounds();
 
-        if (govSettings_[0] > 100) revert QuorumMax();
+        if (govSettings_[1] > 365 days) revert PeriodBounds();
 
-        if (govSettings_[1] <= 51 || govSettings_[1] > 100) revert SupermajorityBounds();
+        if (govSettings_[2] > 100) revert QuorumMax();
+
+        if (govSettings_[3] <= 51 || govSettings_[3] > 100) revert SupermajorityBounds();
 
         KaliDAOtoken._init(name_, symbol_, paused_, voters_, shares_);
 
@@ -173,34 +177,38 @@ contract KaliDAO is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
 
         docs = docs_;
         
-        votingPeriod = votingPeriod_;
+        votingPeriod = govSettings_[0];
+
+        gracePeriod = govSettings_[1];
         
-        quorum = govSettings_[0];
+        quorum = govSettings_[2];
         
-        supermajority = govSettings_[1];
+        supermajority = govSettings_[3];
 
         // set initial vote types
-        proposalVoteTypes[ProposalType.MINT] = VoteType(govSettings_[2]);
+        proposalVoteTypes[ProposalType.MINT] = VoteType(govSettings_[4]);
 
-        proposalVoteTypes[ProposalType.BURN] = VoteType(govSettings_[3]);
+        proposalVoteTypes[ProposalType.BURN] = VoteType(govSettings_[5]);
 
-        proposalVoteTypes[ProposalType.CALL] = VoteType(govSettings_[4]);
+        proposalVoteTypes[ProposalType.CALL] = VoteType(govSettings_[6]);
 
-        proposalVoteTypes[ProposalType.PERIOD] = VoteType(govSettings_[5]);
+        proposalVoteTypes[ProposalType.VPERIOD] = VoteType(govSettings_[7]);
+
+        proposalVoteTypes[ProposalType.GPERIOD] = VoteType(govSettings_[8]);
         
-        proposalVoteTypes[ProposalType.QUORUM] = VoteType(govSettings_[6]);
+        proposalVoteTypes[ProposalType.QUORUM] = VoteType(govSettings_[9]);
         
-        proposalVoteTypes[ProposalType.SUPERMAJORITY] = VoteType(govSettings_[7]);
+        proposalVoteTypes[ProposalType.SUPERMAJORITY] = VoteType(govSettings_[10]);
 
-        proposalVoteTypes[ProposalType.TYPE] = VoteType(govSettings_[8]);
+        proposalVoteTypes[ProposalType.TYPE] = VoteType(govSettings_[11]);
         
-        proposalVoteTypes[ProposalType.PAUSE] = VoteType(govSettings_[9]);
+        proposalVoteTypes[ProposalType.PAUSE] = VoteType(govSettings_[12]);
         
-        proposalVoteTypes[ProposalType.EXTENSION] = VoteType(govSettings_[10]);
+        proposalVoteTypes[ProposalType.EXTENSION] = VoteType(govSettings_[13]);
 
-        proposalVoteTypes[ProposalType.ESCAPE] = VoteType(govSettings_[11]);
+        proposalVoteTypes[ProposalType.ESCAPE] = VoteType(govSettings_[14]);
 
-        proposalVoteTypes[ProposalType.DOCS] = VoteType(govSettings_[12]);
+        proposalVoteTypes[ProposalType.DOCS] = VoteType(govSettings_[15]);
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -226,13 +234,15 @@ contract KaliDAO is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
     ) public nonReentrant virtual returns (uint256 proposal) {
         if (accounts.length != amounts.length || amounts.length != payloads.length) revert NoArrayParity();
         
-        if (proposalType == ProposalType.PERIOD) if (amounts[0] == 0 || amounts[0] > 365 days) revert VotingPeriodBounds();
+        if (proposalType == ProposalType.VPERIOD) if (amounts[0] == 0 || amounts[0] > 365 days) revert PeriodBounds();
+
+        if (proposalType == ProposalType.GPERIOD) if (amounts[0] == 0 || amounts[0] > 365 days) revert PeriodBounds();
         
         if (proposalType == ProposalType.QUORUM) if (amounts[0] > 100) revert QuorumMax();
         
         if (proposalType == ProposalType.SUPERMAJORITY) if (amounts[0] <= 51 || amounts[0] > 100) revert SupermajorityBounds();
 
-        if (proposalType == ProposalType.TYPE) if (amounts[0] > 10 || amounts[1] > 3 || amounts.length != 2) revert TypeBounds();
+        if (proposalType == ProposalType.TYPE) if (amounts[0] > 11 || amounts[1] > 3 || amounts.length != 2) revert TypeBounds();
 
         bool selfSponsor;
 
@@ -374,10 +384,10 @@ contract KaliDAO is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
 
         if (prop.creationTime == 0) revert NotCurrentProposal();
         
-        // this is safe from overflow because `votingPeriod` is capped so it will not combine
+        // this is safe from overflow because `votingPeriod` and `gracePeriod` are capped so they will not combine
         // with unix time to exceed the max uint256 value
         unchecked {
-            if (block.timestamp <= prop.creationTime + votingPeriod) revert VotingNotEnded();
+            if (block.timestamp <= prop.creationTime + votingPeriod + gracePeriod) revert VotingNotEnded();
         }
 
         // skip previous proposal processing requirement in case of escape hatch
@@ -410,14 +420,17 @@ contract KaliDAO is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
                     }
                     
                 // governance settings
-                if (prop.proposalType == ProposalType.PERIOD) 
+                if (prop.proposalType == ProposalType.VPERIOD) 
                     if (prop.amounts[0] != 0) votingPeriod = uint32(prop.amounts[0]);
                 
+                if (prop.proposalType == ProposalType.GPERIOD) 
+                    if (prop.amounts[0] != 0) gracePeriod = uint32(prop.amounts[0]);
+                
                 if (prop.proposalType == ProposalType.QUORUM) 
-                    if (prop.amounts[0] != 0) quorum = uint8(prop.amounts[0]);
+                    if (prop.amounts[0] != 0) quorum = uint32(prop.amounts[0]);
                 
                 if (prop.proposalType == ProposalType.SUPERMAJORITY) 
-                    if (prop.amounts[0] != 0) supermajority = uint8(prop.amounts[0]);
+                    if (prop.amounts[0] != 0) supermajority = uint32(prop.amounts[0]);
                 
                 if (prop.proposalType == ProposalType.TYPE) 
                     proposalVoteTypes[ProposalType(prop.amounts[0])] = VoteType(prop.amounts[1]);
@@ -521,12 +534,15 @@ contract KaliDAO is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
     }
 
     function updateGovernance(
-        uint32 votingPeriod_, 
-        uint8 quorum_, 
-        uint8 supermajority_,
+        uint32 votingPeriod_,
+        uint32 gracePeriod_, 
+        uint32 quorum_, 
+        uint32 supermajority_,
         bool flipPause
     ) public onlyExtension virtual {
         if (votingPeriod_ != 0 && votingPeriod_ <= 365 days) votingPeriod = votingPeriod_;
+
+        if (gracePeriod_ != 0 && gracePeriod_ <= 365 days) gracePeriod = gracePeriod_;
 
         if (quorum_ <= 100) quorum = quorum_;
 
@@ -537,5 +553,9 @@ contract KaliDAO is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
 
     function updateExtension(address extension) public onlyExtension virtual {
         extensions[extension] = !extensions[extension];
+    }
+
+    function escapeProposal(uint256 proposal) public onlyExtension virtual {
+        delete proposals[proposal];
     }
 }
