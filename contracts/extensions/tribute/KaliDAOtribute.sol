@@ -84,7 +84,7 @@ contract KaliDAOtribute is ReentrancyGuard {
 
         if (msg.sender != trib.proposer) revert NotProposer();
 
-        if (dao.proposals(proposal).creationTime != 0) revert Sponsored();
+        //if (dao.proposals(proposal).creationTime != 0) revert Sponsored();
 
         dao.cancelProposal(proposal);
 
