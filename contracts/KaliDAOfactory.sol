@@ -17,8 +17,7 @@ contract KaliDAOfactory is Multicall {
         bytes[] extensionsData,
         address[] voters,
         uint256[] shares,
-        uint32 votingPeriod,
-        uint8[13] govSettings
+        uint32[16] govSettings
     );
 
     error NullDeploy();
@@ -42,8 +41,7 @@ contract KaliDAOfactory is Multicall {
         bytes[] memory extensionsData_,
         address[] calldata voters_,
         uint256[] calldata shares_,
-        uint32 votingPeriod_,
-        uint8[13] memory govSettings_
+        uint32[16] memory govSettings_
     ) public payable virtual returns (KaliDAO kaliDAO) {
         kaliDAO = KaliDAO(_cloneAsMinimalProxy(kaliMaster, name_));
         
@@ -55,8 +53,7 @@ contract KaliDAOfactory is Multicall {
             extensions_,
             extensionsData_,
             voters_, 
-            shares_, 
-            votingPeriod_, 
+            shares_,  
             govSettings_
         );
 
@@ -66,7 +63,7 @@ contract KaliDAOfactory is Multicall {
             ricardianLLC.mintLLC(address(kaliDAO));
         }
 
-        emit DAOdeployed(kaliDAO, name_, symbol_, docs_, paused_, extensions_, extensionsData_, voters_, shares_, votingPeriod_, govSettings_);
+        emit DAOdeployed(kaliDAO, name_, symbol_, docs_, paused_, extensions_, extensionsData_, voters_, shares_, govSettings_);
     }
 
     /// @dev modified from Aelin (https://github.com/AelinXYZ/aelin/blob/main/contracts/MinimalProxyFactory.sol)
