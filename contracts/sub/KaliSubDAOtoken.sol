@@ -8,7 +8,7 @@ import '../../access/KaliOwnable.sol';
 /// @dev Designed for subDAOs and/or "Loot"-like systems with remote ownership.
 /// @author Modified from Solmate (https://github.com/Rari-Capital/solmate/blob/main/src/erc20/ERC20.sol)
 /// License-Identifier: AGPL-3.0-only
-contract KaliSubDAOToken is KaliOwnable {
+contract KaliSubDAOtoken is KaliOwnable {
     /*///////////////////////////////////////////////////////////////
                             EVENTS
     //////////////////////////////////////////////////////////////*/
