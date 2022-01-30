@@ -15,7 +15,8 @@ interface IKaliDAOtribute {
         TYPE, 
         PAUSE, 
         EXTENSION,
-        ESCAPE
+        ESCAPE,
+        DOCS
     }
 
     struct Proposal {
@@ -24,6 +25,7 @@ interface IKaliDAOtribute {
         address[] accounts; 
         uint256[] amounts; 
         bytes[] payloads; 
+        uint256 prevProposal;
         uint96 yesVotes;
         uint96 noVotes;
         uint32 creationTime;
@@ -35,9 +37,9 @@ interface IKaliDAOtribute {
         bool processed;
     }
 
-    function proposals(uint256 proposal) external returns (Proposal memory);
+    function proposals(uint256 proposal) external view returns (Proposal memory);
 
-    function proposalStates(uint256 proposal) external returns (ProposalState memory);
+    function proposalStates(uint256 proposal) external view returns (ProposalState memory);
 
     function propose(
         ProposalType proposalType,
