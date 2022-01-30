@@ -3,7 +3,7 @@
 pragma solidity >=0.8.4;
 
 import '../../libraries/SafeTransferLib.sol';
-import '../../interfaces/IKaliDAOextension.sol';
+import '../../interfaces/IKaliShareManager.sol';
 import '../../interfaces/IKaliWhitelistManager.sol';
 import '../../utils/ReentrancyGuard.sol';
 
@@ -61,8 +61,6 @@ contract KaliDAOcrowdsale is ReentrancyGuard {
     function callExtension(address dao, uint256 amount) public payable nonReentrant virtual returns (uint256 amountOut) {
         Crowdsale storage sale = crowdsales[dao];
 
-        bytes memory extensionData = abi.encode(true);
-
         if (block.timestamp > sale.saleEnds) revert SaleEnded();
 
         if (sale.listId != 0) 
@@ -78,7 +76,7 @@ contract KaliDAOcrowdsale is ReentrancyGuard {
 
             sale.amountPurchased += uint96(amountOut);
 
-            IKaliDAOextension(dao).callExtension(msg.sender, amountOut, extensionData);
+            IKaliShareManager(dao).mintShares(msg.sender, amountOut);
         } else {
             // send tokens to DAO
             sale.purchaseToken._safeTransferFrom(msg.sender, dao, amount);
@@ -88,8 +86,8 @@ contract KaliDAOcrowdsale is ReentrancyGuard {
             if (sale.amountPurchased + amountOut > sale.purchaseLimit) revert PurchaseLimit();
 
             sale.amountPurchased += uint96(amountOut);
-
-            IKaliDAOextension(dao).callExtension(msg.sender, amountOut, extensionData);
+            
+            IKaliShareManager(dao).mintShares(msg.sender, amountOut);
         }
 
         emit ExtensionCalled(msg.sender, dao, amountOut);
