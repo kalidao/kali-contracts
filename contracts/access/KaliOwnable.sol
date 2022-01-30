@@ -4,7 +4,7 @@ pragma solidity >=0.8.4;
 
 /// @notice Single owner access control contract.
 /// @author Modified from SushiSwap (https://github.com/sushiswap/trident/blob/master/contracts/TridentOwnable.sol)
-abstract contract Ownable {
+abstract contract KaliOwnable {
     event OwnershipTransferred(address indexed from, address indexed to);
 
     event ClaimTransferred(address indexed from, address indexed to);

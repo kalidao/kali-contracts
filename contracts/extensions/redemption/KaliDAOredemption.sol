@@ -2,6 +2,7 @@
 
 pragma solidity >=0.8.4;
 
+import '../../sub/KaliSubDAOtoken.sol';
 import '../../libraries/SafeTransferLib.sol';
 import '../../interfaces/IERC20minimal.sol';
 import '../../utils/ReentrancyGuard.sol';
@@ -10,11 +11,29 @@ import '../../utils/ReentrancyGuard.sol';
 contract KaliDAOredemption is ReentrancyGuard {
     using SafeTransferLib for address;
 
+    /*///////////////////////////////////////////////////////////////
+                            EVENTS
+    //////////////////////////////////////////////////////////////*/
+
     event ExtensionSet(address indexed dao, address[] redemptionTokens, uint32 redemptionStarts, bool votesRedeemable);
 
     event ExtensionCalled(address indexed dao, address indexed member, uint256 indexed amountBurned);
 
+    event LootDeployed(string name, string symbol, bool paused, address[] voters, uint256[] shares, address indexed dao);
+
+    /*///////////////////////////////////////////////////////////////
+                            ERRORS
+    //////////////////////////////////////////////////////////////*/
+
     error NotStarted();
+
+    error NullDeploy();
+
+    /*///////////////////////////////////////////////////////////////
+                            STORAGE
+    //////////////////////////////////////////////////////////////*/
+
+    address public immutable lootMaster;
 
     mapping(address => Redemption) public redemptions;
 
@@ -23,6 +42,18 @@ contract KaliDAOredemption is ReentrancyGuard {
         uint32 redemptionStarts;
         bool votesRedeemable;
     }
+
+    /*///////////////////////////////////////////////////////////////
+                            CONSTRUCTOR
+    //////////////////////////////////////////////////////////////*/
+
+    constructor(address lootMaster_) {
+        lootMaster = lootMaster_;
+    }
+
+    /*///////////////////////////////////////////////////////////////
+                            REDEMPTION LOGIC
+    //////////////////////////////////////////////////////////////*/
 
     function getRedeemables(address dao) public view virtual returns (address[] memory) {
         return redemptions[dao].redemptionTokens;
@@ -97,7 +128,58 @@ contract KaliDAOredemption is ReentrancyGuard {
             }
         }
 
-
         emit ExtensionCalled(dao, msg.sender, amount);
+    }
+
+    /*///////////////////////////////////////////////////////////////
+                            DEPLOYER LOGIC
+    //////////////////////////////////////////////////////////////*/
+
+    function deployKaliDAOloot(
+        string memory name_,
+        string memory symbol_,
+        bool paused_,
+        address[] memory voters_,
+        uint256[] memory shares_
+    ) public virtual returns (KaliSubDAOToken kaliLoot) {
+        kaliLoot = KaliSubDAOToken(_cloneAsMinimalProxy(lootMaster, name_));
+
+        kaliLoot.init(
+            name_,
+            symbol_,
+            paused_,
+            voters_,
+            shares_,
+            msg.sender
+        );
+
+        redemptions[msg.sender].redemptionTokens.push(address(kaliLoot));
+
+        emit LootDeployed(name_, symbol_, paused_, voters_, shares_, msg.sender);
+    }
+
+    /// @dev modified from Aelin (https://github.com/AelinXYZ/aelin/blob/main/contracts/MinimalProxyFactory.sol)
+    function _cloneAsMinimalProxy(address base, string memory name_) internal virtual returns (address clone) {
+        bytes memory createData = abi.encodePacked(
+            // constructor
+            bytes10(0x3d602d80600a3d3981f3),
+            // proxy code
+            bytes10(0x363d3d373d3d3d363d73),
+            base,
+            bytes15(0x5af43d82803e903d91602b57fd5bf3)
+        );
+
+        bytes32 salt = keccak256(bytes(name_));
+
+        assembly {
+            clone := create2(
+                0, // no value
+                add(createData, 0x20), // data
+                mload(createData),
+                salt
+            )
+        }
+        // if CREATE2 fails for some reason, address(0) is returned
+        if (clone == address(0)) revert NullDeploy();
     }
 }
