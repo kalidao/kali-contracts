@@ -15,11 +15,11 @@ contract KaliDAOredemption is ReentrancyGuard {
                             EVENTS
     //////////////////////////////////////////////////////////////*/
 
-    event ExtensionSet(address indexed dao, address[] redemptionTokens, uint32 redemptionStarts, bool votesRedeemable);
+    event ExtensionSet(address indexed dao, address lootToken, uint32 redemptionStarts, bool votesRedeemable);
 
-    event ExtensionCalled(address indexed dao, address indexed member, uint256 indexed amountBurned);
+    event ExtensionCalled(address indexed dao, address indexed member, uint256 lootToRedeem, uint256 votesToRedeem);
 
-    event LootDeployed(string name, string symbol, bool paused, address[] voters, uint256[] shares, address indexed dao);
+    event LootDeployed(address indexed dao, string name, string symbol, bool paused, address[] voters, uint256[] shares);
 
     /*///////////////////////////////////////////////////////////////
                             ERRORS
@@ -38,7 +38,7 @@ contract KaliDAOredemption is ReentrancyGuard {
     mapping(address => Redemption) public redemptions;
 
     struct Redemption {
-        address[] redemptionTokens;
+        address lootToken;
         uint32 redemptionStarts;
         bool votesRedeemable;
     }
@@ -55,68 +55,52 @@ contract KaliDAOredemption is ReentrancyGuard {
                             REDEMPTION LOGIC
     //////////////////////////////////////////////////////////////*/
 
-    function getRedeemables(address dao) public view virtual returns (address[] memory) {
-        return redemptions[dao].redemptionTokens;
-    }
-
     function setExtension(bytes calldata extensionData) public nonReentrant virtual {
-        (address[] memory redemptionTokens, uint32 redemptionStarts, bool votesRedeemable) 
-            = abi.decode(extensionData, (address[], uint32, bool));
+        (address lootToken, uint32 redemptionStarts, bool votesRedeemable) 
+            = abi.decode(extensionData, (address, uint32, bool));
 
         redemptions[msg.sender] = Redemption({
-            redemptionTokens: redemptionTokens,
+            lootToken: lootToken,
             redemptionStarts: redemptionStarts,
             votesRedeemable: votesRedeemable
         });
 
-        emit ExtensionSet(msg.sender, redemptionTokens, redemptionStarts, votesRedeemable);
+        emit ExtensionSet(msg.sender, lootToken, redemptionStarts, votesRedeemable);
     }
 
     function callExtension(
         address dao, 
-        address[] calldata tokensToRedeem, 
-        uint256[] calldata redemptionAmounts,
+        address[] calldata tokensToClaim, 
+        uint256 lootToRedeem,
         uint256 votesToRedeem
     ) public nonReentrant virtual {
         Redemption storage redmn = redemptions[dao];
 
         if (block.timestamp < redmn.redemptionStarts) revert NotStarted();
 
-        uint256 amount;
-
         uint256 totalSupply;
 
+        if (redmn.lootToken != address(0)) {
+            totalSupply += IERC20minimal(redmn.lootToken).totalSupply();
+
+            IERC20minimal(redmn.lootToken).burnFrom(msg.sender, lootToRedeem);
+        }
+ 
         if (redmn.votesRedeemable) {
-            IERC20minimal(dao).burnFrom(msg.sender, votesToRedeem);
-
-            amount += votesToRedeem;
-
             totalSupply += IERC20minimal(dao).totalSupply();
+
+            IERC20minimal(dao).burnFrom(msg.sender, votesToRedeem);
         }
 
-        if (tokensToRedeem.length != 0) {
-            for (uint256 i; i < redmn.redemptionTokens.length;) {
-                IERC20minimal(tokensToRedeem[i]).burnFrom(msg.sender, redemptionAmounts[i]);
-                
-                amount += redemptionAmounts[i];
-
-                totalSupply += IERC20minimal(tokensToRedeem[i]).totalSupply();
-
-                unchecked {
-                    i++;
-                }
-            }
-        }
-
-        for (uint256 i; i < tokensToRedeem.length;) {
+        for (uint256 i; i < tokensToClaim.length;) {
             // calculate fair share of given token for redemption
-            uint256 amountToRedeem = amount * 
-                IERC20minimal(tokensToRedeem[i]).balanceOf(dao) / 
+            uint256 amountToRedeem = (lootToRedeem + votesToRedeem) * 
+                IERC20minimal(tokensToClaim[i]).balanceOf(dao) / 
                 totalSupply;
             
             // `transferFrom` DAO to redeemer
             if (amountToRedeem != 0) {
-                tokensToRedeem[i]._safeTransferFrom(
+                tokensToClaim[i]._safeTransferFrom(
                     dao, 
                     msg.sender, 
                     amountToRedeem
@@ -128,7 +112,7 @@ contract KaliDAOredemption is ReentrancyGuard {
             }
         }
 
-        emit ExtensionCalled(dao, msg.sender, amount);
+        emit ExtensionCalled(dao, msg.sender, lootToRedeem, votesToRedeem);
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -153,9 +137,9 @@ contract KaliDAOredemption is ReentrancyGuard {
             msg.sender
         );
 
-        redemptions[msg.sender].redemptionTokens.push(address(kaliLoot));
+        redemptions[msg.sender].lootToken = address(kaliLoot);
 
-        emit LootDeployed(name_, symbol_, paused_, voters_, shares_, msg.sender);
+        emit LootDeployed(msg.sender, name_, symbol_, paused_, voters_, shares_);
     }
 
     /// @dev modified from Aelin (https://github.com/AelinXYZ/aelin/blob/main/contracts/MinimalProxyFactory.sol)
