@@ -43,8 +43,7 @@ describe("KaliDAO", function () {
       [],
       [proposer.address],
       [getBigNumber(10)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 0, 1]
     )
     expect(await kali.name()).to.equal("KALI")
     expect(await kali.symbol()).to.equal("KALI")
@@ -52,7 +51,8 @@ describe("KaliDAO", function () {
     expect(await kali.paused()).to.equal(false)
     expect(await kali.balanceOf(proposer.address)).to.equal(getBigNumber(10))
     expect(await kali.votingPeriod()).to.equal(30)
-    expect(await kali.quorum()).to.equal(30)
+    expect(await kali.gracePeriod()).to.equal(0)
+    expect(await kali.quorum()).to.equal(0)
     expect(await kali.supermajority()).to.equal(60)
     expect(await kali.proposalVoteTypes(0)).to.equal(0)
     expect(await kali.proposalVoteTypes(1)).to.equal(0)
@@ -65,6 +65,7 @@ describe("KaliDAO", function () {
     expect(await kali.proposalVoteTypes(8)).to.equal(2)
     expect(await kali.proposalVoteTypes(9)).to.equal(3)
     expect(await kali.proposalVoteTypes(10)).to.equal(0)
+    expect(await kali.proposalVoteTypes(11)).to.equal(1)
   })
   it("Should revert if initialization gov settings exceed bounds", async function () {
     expect(await kali.init(
@@ -76,8 +77,7 @@ describe("KaliDAO", function () {
       [],
       [proposer.address],
       [getBigNumber(10)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 0, 1]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 0, 1, 1]
     ).should.be.reverted)
     expect(await kali.init(
       "KALI",
@@ -88,8 +88,7 @@ describe("KaliDAO", function () {
       [],
       [proposer.address],
       [getBigNumber(10)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 9]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 0, 9]
     ).should.be.reverted)
   })
   it("Should revert if initialization arrays don't match", async function () {
@@ -102,8 +101,7 @@ describe("KaliDAO", function () {
       [],
       [bob.address],
       [getBigNumber(10)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     ).should.be.reverted)
     expect(await kali.init(
       "KALI",
@@ -114,8 +112,7 @@ describe("KaliDAO", function () {
       [],
       [bob.address, alice.address],
       [getBigNumber(10)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     ).should.be.reverted)
   })
   it("Should revert if already initialized", async function () {
@@ -128,8 +125,7 @@ describe("KaliDAO", function () {
       [],
       [bob.address],
       [getBigNumber(10)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     ))
     expect(await kali.init(
       "KALI",
@@ -140,8 +136,7 @@ describe("KaliDAO", function () {
       [],
       [bob.address],
       [getBigNumber(10)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     ).should.be.reverted)
   })
   it("Should revert if voting period is initialized null or longer than year", async function () {
@@ -154,8 +149,7 @@ describe("KaliDAO", function () {
       [],
       [bob.address],
       [getBigNumber(10)],
-      0,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [0, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     ).should.be.reverted)
     expect(await kali.init(
       "KALI",
@@ -166,8 +160,20 @@ describe("KaliDAO", function () {
       [],
       [bob.address],
       [getBigNumber(10)],
-      31536001,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [31536001, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    ).should.be.reverted)
+  })
+  it("Should revert if grace period is initialized longer than year", async function () {
+    expect(await kali.init(
+      "KALI",
+      "KALI",
+      "DOCS",
+      false,
+      [],
+      [],
+      [bob.address],
+      [getBigNumber(10)],
+      [30, 31536001, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     ).should.be.reverted)
   })
   it("Should revert if quorum is initialized greater than 100", async function () {
@@ -180,8 +186,7 @@ describe("KaliDAO", function () {
       [],
       [bob.address],
       [getBigNumber(10)],
-      30,
-      [101, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 101, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     ).should.be.reverted)
   })
   it("Should revert if supermajority is initialized less than 52 or greater than 100", async function () {
@@ -194,8 +199,7 @@ describe("KaliDAO", function () {
       [],
       [bob.address],
       [getBigNumber(10)],
-      30,
-      [100, 51, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 51, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     ).should.be.reverted)
     expect(await kali.init(
       "KALI",
@@ -206,8 +210,7 @@ describe("KaliDAO", function () {
       [],
       [bob.address],
       [getBigNumber(10)],
-      30,
-      [100, 101, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 101, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     ).should.be.reverted)
   })
   it("Should revert if proposal arrays don't match", async function () {
@@ -220,8 +223,7 @@ describe("KaliDAO", function () {
       [],
       [bob.address],
       [getBigNumber(1)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     expect(await kali.propose(
       0,
@@ -241,8 +243,7 @@ describe("KaliDAO", function () {
       [],
       [bob.address],
       [getBigNumber(1)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     // normal
     await kali.propose(
@@ -267,6 +268,34 @@ describe("KaliDAO", function () {
       [0x00]
     ).should.be.reverted)
   })
+  it("Should revert if grace proposal is for longer than year", async function () {
+    await kali.init(
+      "KALI",
+      "KALI",
+      "DOCS",
+      true,
+      [],
+      [],
+      [bob.address],
+      [getBigNumber(1)],
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    )
+    // normal
+    await kali.propose(
+      4,
+      "TEST",
+      [bob.address],
+      [9000],
+      [0x00]
+    )
+    expect(await kali.propose(
+      4,
+      "TEST",
+      [bob.address],
+      [31536001],
+      [0x00]
+    ).should.be.reverted)
+  })
   it("Should revert if quorum proposal is for greater than 100", async function () {
     await kali.init(
       "KALI",
@@ -277,19 +306,18 @@ describe("KaliDAO", function () {
       [],
       [bob.address],
       [getBigNumber(1)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     // normal
     await kali.propose(
-      4,
+      5,
       "TEST",
       [bob.address],
       [20],
       [0x00]
     )
     expect(await kali.propose(
-      4,
+      5,
       "TEST",
       [bob.address],
       [101],
@@ -306,26 +334,25 @@ describe("KaliDAO", function () {
       [],
       [bob.address],
       [getBigNumber(1)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     // normal
     await kali.propose(
-      5,
+      6,
       "TEST",
       [bob.address],
       [60],
       [0x00]
     )
     expect(await kali.propose(
-      5,
+      6,
       "TEST",
       [bob.address],
       [51],
       [0x00]
     ).should.be.reverted)
     expect(await kali.propose(
-      5,
+      6,
       "TEST",
       [bob.address],
       [101],
@@ -342,33 +369,32 @@ describe("KaliDAO", function () {
       [],
       [bob.address],
       [getBigNumber(1)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     // normal
     await kali.propose(
-      6,
+      7,
       "TEST",
       [bob.address, alice.address],
       [0, 1],
       [0x00, 0x00]
     )
     expect(await kali.propose(
-      6,
+      7,
       "TEST",
       [bob.address, alice.address],
-      [11, 2],
+      [12, 2],
       [0x00, 0x00]
     ).should.be.reverted)
     expect(await kali.propose(
-      6,
+      7,
       "TEST",
       [bob.address, alice.address],
       [0, 5],
       [0x00, 0x00]
     ).should.be.reverted)
     expect(await kali.propose(
-      6,
+      7,
       "TEST",
       [proposer.address, bob.address, alice.address],
       [0, 1, 0],
@@ -385,8 +411,7 @@ describe("KaliDAO", function () {
       [],
       [proposer.address],
       [getBigNumber(1)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     await kali.connect(alice).propose(
       0,
@@ -407,8 +432,7 @@ describe("KaliDAO", function () {
       [],
       [proposer.address],
       [getBigNumber(1)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     await kali.connect(alice).propose(
       0,
@@ -429,8 +453,7 @@ describe("KaliDAO", function () {
       [],
       [proposer.address],
       [getBigNumber(1)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     await kali.connect(alice).propose(
       0,
@@ -452,8 +475,7 @@ describe("KaliDAO", function () {
       [],
       [proposer.address],
       [getBigNumber(1)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     await kali.connect(alice).propose(
       0,
@@ -474,8 +496,7 @@ describe("KaliDAO", function () {
       [],
       [proposer.address],
       [getBigNumber(1)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     await kali.connect(alice).propose(
       0,
@@ -500,8 +521,7 @@ describe("KaliDAO", function () {
       [],
       [proposer.address],
       [getBigNumber(1)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     await kali.connect(alice).propose(
       0,
@@ -522,8 +542,7 @@ describe("KaliDAO", function () {
       [],
       [proposer.address],
       [getBigNumber(1)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     await kali.connect(alice).propose(
       0,
@@ -550,8 +569,7 @@ describe("KaliDAO", function () {
       [],
       [proposer.address],
       [getBigNumber(1)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     await kali.connect(alice).propose(
       0,
@@ -573,8 +591,7 @@ describe("KaliDAO", function () {
       [],
       [proposer.address],
       [getBigNumber(1)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     await kali.propose(
       0,
@@ -595,8 +612,7 @@ describe("KaliDAO", function () {
       [],
       [proposer.address],
       [getBigNumber(1)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     await kali.propose(
       0,
@@ -617,8 +633,7 @@ describe("KaliDAO", function () {
       [],
       [proposer.address],
       [getBigNumber(1)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     await kali.propose(
       0,
@@ -640,8 +655,7 @@ describe("KaliDAO", function () {
       [],
       [proposer.address],
       [getBigNumber(1)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     await kali.propose(
       0,
@@ -653,6 +667,52 @@ describe("KaliDAO", function () {
     await advanceTime(35)
     expect(await kali.vote(1, true).should.be.reverted)
   })
+  it("Should forbid processing before voting period ends", async function () {
+    await kali.init(
+      "KALI",
+      "KALI",
+      "DOCS",
+      true,
+      [],
+      [],
+      [proposer.address],
+      [getBigNumber(1)],
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    )
+    await kali.propose(
+      0,
+      "TEST",
+      [proposer.address],
+      [getBigNumber(1000)],
+      [0x00]
+    )
+    await kali.vote(1, true)
+    await advanceTime(29)
+    expect(await kali.processProposal(1).should.be.reverted)
+  })
+  it("Should forbid processing before grace period ends", async function () {
+    await kali.init(
+      "KALI",
+      "KALI",
+      "DOCS",
+      true,
+      [],
+      [],
+      [proposer.address],
+      [getBigNumber(1)],
+      [30, 30, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    )
+    await kali.propose(
+      0,
+      "TEST",
+      [proposer.address],
+      [getBigNumber(1000)],
+      [0x00]
+    )
+    await advanceTime(29)
+    await kali.vote(1, true)
+    expect(await kali.processProposal(1).should.be.reverted)
+  })
   it("Should process membership proposal", async function () {
     await kali.init(
       "KALI",
@@ -663,8 +723,7 @@ describe("KaliDAO", function () {
       [],
       [proposer.address],
       [getBigNumber(1)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     await kali.propose(
       0,
@@ -688,8 +747,7 @@ describe("KaliDAO", function () {
       [],
       [proposer.address],
       [getBigNumber(1)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     await kali.propose(0, "TEST", [alice.address], [0], [0x00])
     const rs = ethers.utils.formatBytes32String("rs")
@@ -726,8 +784,7 @@ describe("KaliDAO", function () {
       [],
       [proposer.address],
       [getBigNumber(1)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     await kali.propose(0, "TEST", [alice.address], [getBigNumber(1000)], [0x00])
 
@@ -749,8 +806,7 @@ describe("KaliDAO", function () {
       [],
       [proposer.address],
       [getBigNumber(1)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     await kali.propose(1, "TEST", [proposer.address], [getBigNumber(1)], [0x00])
     await kali.vote(1, true)
@@ -775,8 +831,7 @@ describe("KaliDAO", function () {
       [],
       [proposer.address],
       [getBigNumber(1)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     await kali.propose(2, "TEST", [fixedERC20.address], [0], [payload])
     await kali.vote(1, true)
@@ -822,8 +877,7 @@ describe("KaliDAO", function () {
       [],
       [proposer.address],
       [getBigNumber(1)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     await kali.propose(
       2,
@@ -840,7 +894,7 @@ describe("KaliDAO", function () {
     expect(await dropETH.amount()).to.equal(getBigNumber(2))
     expect(await dropETH.recipients(1)).to.equal(bob.address)
   })
-  it("Should process period proposal", async function () {
+  it("Should process voting period proposal", async function () {
     await kali.init(
       "KALI",
       "KALI",
@@ -850,14 +904,33 @@ describe("KaliDAO", function () {
       [],
       [proposer.address],
       [getBigNumber(1)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
-    await kali.propose(3, "TEST", [proposer.address], [5], [0x00])
+    expect(await kali.votingPeriod()).to.equal(30)
+    await kali.propose(3, "TEST", [proposer.address], [90], [0x00])
     await kali.vote(1, true)
     await advanceTime(35)
     await kali.processProposal(1)
-    expect(await kali.votingPeriod()).to.equal(5)
+    expect(await kali.votingPeriod()).to.equal(90)
+  })
+  it("Should process grace period proposal", async function () {
+    await kali.init(
+      "KALI",
+      "KALI",
+      "DOCS",
+      true,
+      [],
+      [],
+      [proposer.address],
+      [getBigNumber(1)],
+      [90, 30, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    )
+    expect(await kali.gracePeriod()).to.equal(30)
+    await kali.propose(4, "TEST", [proposer.address], [60], [0x00])
+    await kali.vote(1, true)
+    await advanceTime(125)
+    await kali.processProposal(1)
+    expect(await kali.gracePeriod()).to.equal(60)
   })
   it("Should process quorum proposal", async function () {
     await kali.init(
@@ -869,10 +942,9 @@ describe("KaliDAO", function () {
       [],
       [proposer.address],
       [getBigNumber(1)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
-    await kali.propose(4, "TEST", [proposer.address], [100], [0x00])
+    await kali.propose(5, "TEST", [proposer.address], [100], [0x00])
     await kali.vote(1, true)
     await advanceTime(35)
     await kali.processProposal(1)
@@ -888,10 +960,9 @@ describe("KaliDAO", function () {
       [],
       [proposer.address],
       [getBigNumber(1)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
-    await kali.propose(5, "TEST", [proposer.address], [52], [0x00])
+    await kali.propose(6, "TEST", [proposer.address], [52], [0x00])
     await kali.vote(1, true)
     await advanceTime(35)
     await kali.processProposal(1)
@@ -907,11 +978,10 @@ describe("KaliDAO", function () {
       [],
       [proposer.address],
       [getBigNumber(1)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     await kali.propose(
-      6,
+      7,
       "TEST",
       [proposer.address, proposer.address],
       [0, 3],
@@ -932,10 +1002,9 @@ describe("KaliDAO", function () {
       [],
       [proposer.address],
       [getBigNumber(1)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
-    await kali.propose(7, "TEST", [proposer.address], [0], [0x00])
+    await kali.propose(8, "TEST", [proposer.address], [0], [0x00])
     await kali.vote(1, true)
     await advanceTime(35)
     await kali.processProposal(1)
@@ -951,10 +1020,9 @@ describe("KaliDAO", function () {
       [],
       [proposer.address],
       [getBigNumber(1)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
-    await kali.propose(8, "TEST", [wethAddress], [0], [0x00])
+    await kali.propose(9, "TEST", [wethAddress], [0], [0x00])
     await kali.vote(1, true)
     await advanceTime(35)
     await kali.processProposal(1)
@@ -970,10 +1038,9 @@ describe("KaliDAO", function () {
       [],
       [proposer.address],
       [getBigNumber(1)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
-    await kali.propose(8, "TEST", [wethAddress], [1], [0x00])
+    await kali.propose(9, "TEST", [wethAddress], [1], [0x00])
     await kali.vote(1, true)
     await advanceTime(35)
     await kali.processProposal(1)
@@ -990,8 +1057,7 @@ describe("KaliDAO", function () {
       [],
       [proposer.address],
       [getBigNumber(1)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     // Instantiate KaliWhiteListManager
     let KaliWhitelistManager = await ethers.getContractFactory(
@@ -1007,7 +1073,6 @@ describe("KaliDAO", function () {
     await kaliDAOcrowdsale.deployed()
     // Set up whitelist
     await kaliWhitelistManager.createWhitelist(
-      1,
       [alice.address],
       "0x074b43252ffb4a469154df5fb7fe4ecce30953ba8b7095fe1e006185f017ad10"
     )
@@ -1022,7 +1087,7 @@ describe("KaliDAO", function () {
         1672174799,
       ]
     )
-    await kali.propose(8, "TEST", [kaliDAOcrowdsale.address], [1], [payload])
+    await kali.propose(9, "TEST", [kaliDAOcrowdsale.address], [1], [payload])
     await kali.vote(1, true)
     await advanceTime(35)
     await kali.processProposal(1)
@@ -1057,8 +1122,7 @@ describe("KaliDAO", function () {
       [],
       [proposer.address],
       [getBigNumber(1)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     // Instantiate KaliWhiteListManager
     let KaliWhitelistManager = await ethers.getContractFactory(
@@ -1074,7 +1138,6 @@ describe("KaliDAO", function () {
     await kaliDAOcrowdsale.deployed()
     // Set up whitelist
     await kaliWhitelistManager.createWhitelist(
-      1,
       [alice.address],
       "0x074b43252ffb4a469154df5fb7fe4ecce30953ba8b7095fe1e006185f017ad10"
     )
@@ -1083,7 +1146,7 @@ describe("KaliDAO", function () {
       ["uint256", "address", "uint8", "uint96", "uint32"],
       [1, purchaseToken.address, 2, getBigNumber(100), 1672174799]
     )
-    await kali.propose(8, "TEST", [kaliDAOcrowdsale.address], [1], [payload])
+    await kali.propose(9, "TEST", [kaliDAOcrowdsale.address], [1], [payload])
     await kali.vote(1, true)
     await advanceTime(35)
     await kali.processProposal(1)
@@ -1108,8 +1171,7 @@ describe("KaliDAO", function () {
       [],
       [proposer.address],
       [getBigNumber(1)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     await kali.propose(
       0,
@@ -1127,7 +1189,7 @@ describe("KaliDAO", function () {
       [0x00]
     )
     await kali.vote(2, false)
-    await kali.propose(9, "TEST", [proposer.address], [2], [0x00])
+    await kali.propose(10, "TEST", [proposer.address], [2], [0x00])
     await kali.vote(3, true)
     await advanceTime(35)
     await kali.processProposal(3)
@@ -1146,10 +1208,9 @@ describe("KaliDAO", function () {
       [],
       [proposer.address],
       [getBigNumber(1)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
-    await kali.propose(10, "TEST", [], [], [])
+    await kali.propose(11, "TEST", [], [], [])
     await kali.vote(1, true)
     await advanceTime(35)
     await kali.processProposal(1)
@@ -1165,8 +1226,7 @@ describe("KaliDAO", function () {
       [],
       [proposer.address],
       [getBigNumber(1)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     expect(await kali.processProposal(2).should.be.reverted)
   })
@@ -1180,8 +1240,7 @@ describe("KaliDAO", function () {
       [],
       [proposer.address],
       [getBigNumber(1)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     await kali.propose(
       0,
@@ -1205,8 +1264,7 @@ describe("KaliDAO", function () {
       [],
       [proposer.address],
       [getBigNumber(1)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     await kali.propose(
       0,
@@ -1229,8 +1287,7 @@ describe("KaliDAO", function () {
       [],
       [proposer.address],
       [getBigNumber(1)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     // normal
     await kali.propose(
@@ -1275,8 +1332,7 @@ describe("KaliDAO", function () {
       [],
       [proposer.address],
       [getBigNumber(1)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     expect(await kali.callExtension(wethAddress, 10, 0x0).should.be.reverted)
   })
@@ -1290,8 +1346,7 @@ describe("KaliDAO", function () {
       [],
       [proposer.address],
       [getBigNumber(1)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     expect(await kali.connect(alice).callExtension(bob.address, 10, 0x0).should.be.reverted)
   })
@@ -1308,8 +1363,7 @@ describe("KaliDAO", function () {
       [],
       [sender.address],
       [getBigNumber(10)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     await kali.transfer(receiver.address, getBigNumber(4))
     expect(await kali.balanceOf(sender.address)).to.equal(getBigNumber(6))
@@ -1330,8 +1384,7 @@ describe("KaliDAO", function () {
       [],
       [sender.address],
       [getBigNumber(10)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     expect(
       await kali.transfer(receiver.address, getBigNumber(11)).should.be.reverted
@@ -1350,8 +1403,7 @@ describe("KaliDAO", function () {
       [],
       [sender.address],
       [getBigNumber(10)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     expect(
       await kali.transfer(receiver.address, getBigNumber(1)).should.be.reverted
@@ -1370,8 +1422,7 @@ describe("KaliDAO", function () {
       [],
       [sender.address],
       [getBigNumber(10)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     await kali.burn(getBigNumber(1))
   })
@@ -1388,8 +1439,7 @@ describe("KaliDAO", function () {
       [],
       [sender.address],
       [getBigNumber(10)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     expect(
       await kali.burn(getBigNumber(11)).should.be.reverted
@@ -1408,8 +1458,7 @@ describe("KaliDAO", function () {
       [],
       [sender.address],
       [getBigNumber(10)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     await kali.approve(receiver.address, getBigNumber(1))
     expect(await kali.allowance(sender.address, receiver.address)).to.equal(getBigNumber(1))
@@ -1428,8 +1477,7 @@ describe("KaliDAO", function () {
       [],
       [sender.address],
       [getBigNumber(10)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     await kali.approve(receiver.address, getBigNumber(1))
     expect(await kali.allowance(sender.address, receiver.address)).to.equal(getBigNumber(1))
@@ -1449,8 +1497,7 @@ describe("KaliDAO", function () {
       [],
       [sender.address],
       [getBigNumber(10)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     await kali.approve(receiver.address, getBigNumber(4))
     expect(await kali.allowance(sender.address, receiver.address)).to.equal(getBigNumber(4))
@@ -1468,8 +1515,7 @@ describe("KaliDAO", function () {
       [],
       [sender.address],
       [getBigNumber(10)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     await kali.approve(receiver.address, getBigNumber(4))
     expect(await kali.allowance(sender.address, receiver.address)).to.equal(getBigNumber(4))
@@ -1488,8 +1534,7 @@ describe("KaliDAO", function () {
       [],
       [sender.address],
       [getBigNumber(10)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     await kali.approve(receiver.address, getBigNumber(4))
     expect(await kali.allowance(sender.address, receiver.address)).to.equal(getBigNumber(4))
@@ -1508,8 +1553,7 @@ describe("KaliDAO", function () {
       [],
       [sender.address],
       [getBigNumber(10)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     await kali.approve(receiver.address, getBigNumber(4))
     expect(await kali.allowance(sender.address, receiver.address)).to.equal(getBigNumber(4))
@@ -1525,8 +1569,7 @@ describe("KaliDAO", function () {
       [],
       [bob.address],
       [getBigNumber(10)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     expect(
       await kali.getPriorVotes(bob.address, 1941275221).should.be.reverted
@@ -1542,8 +1585,7 @@ describe("KaliDAO", function () {
       [],
       [bob.address],
       [getBigNumber(10)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     expect(await kali.delegates(bob.address)).to.equal(bob.address)
   })
@@ -1557,8 +1599,7 @@ describe("KaliDAO", function () {
       [],
       [bob.address],
       [getBigNumber(10)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     expect(await kali.getCurrentVotes(bob.address)).to.equal(getBigNumber(10))
   })
@@ -1575,8 +1616,7 @@ describe("KaliDAO", function () {
       [],
       [sender.address],
       [getBigNumber(10)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     await kali.delegate(receiver.address)
     expect(await kali.delegates(sender.address)).to.equal(receiver.address)
@@ -1602,8 +1642,7 @@ describe("KaliDAO", function () {
       [],
       [sender.address],
       [getBigNumber(10)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     await kali.delegate(receiver.address)
     expect(await kali.getCurrentVotes(sender.address)).to.equal(0)
@@ -1628,8 +1667,7 @@ describe("KaliDAO", function () {
       [],
       [sender.address],
       [getBigNumber(10)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     await kali.delegate(receiver.address)
     expect(await kali.getCurrentVotes(sender.address)).to.equal(0)
@@ -1652,8 +1690,7 @@ describe("KaliDAO", function () {
       [],
       [proposer.address],
       [getBigNumber(1)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     const domain = {
       name: "KALI",
@@ -1684,7 +1721,7 @@ describe("KaliDAO", function () {
     await kali.permit(proposer.address, bob.address, getBigNumber(1), 1941543121, v, r, s)
 
     // Unpause to unblock transferFrom
-    await kali.propose(7, "TEST", [proposer.address], [0], [0x00])
+    await kali.propose(8, "TEST", [proposer.address], [0], [0x00])
     await kali.vote(1, true)
     await advanceTime(35)
     await kali.processProposal(1)
@@ -1719,8 +1756,7 @@ describe("KaliDAO", function () {
       [],
       [proposer.address],
       [getBigNumber(1)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     const rs = ethers.utils.formatBytes32String("rs")
     expect(
@@ -1737,8 +1773,7 @@ describe("KaliDAO", function () {
       [],
       [proposer.address],
       [getBigNumber(1)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     const domain = {
       name: "KALI",
@@ -1774,8 +1809,7 @@ describe("KaliDAO", function () {
       [],
       [proposer.address],
       [getBigNumber(1)],
-      30,
-      [30, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
     const rs = ethers.utils.formatBytes32String("rs")
     expect(
