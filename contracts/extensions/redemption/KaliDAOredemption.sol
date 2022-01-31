@@ -125,8 +125,8 @@ contract KaliDAOredemption is ReentrancyGuard {
         bool paused_,
         address[] memory voters_,
         uint256[] memory shares_
-    ) public virtual returns (KaliSubDAOToken kaliLoot) {
-        kaliLoot = KaliSubDAOToken(_cloneAsMinimalProxy(lootMaster, name_));
+    ) public virtual returns (KaliSubDAOtoken kaliLoot) {
+        kaliLoot = KaliSubDAOtoken(_cloneAsMinimalProxy(lootMaster, name_));
 
         kaliLoot.init(
             name_,
