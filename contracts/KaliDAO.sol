@@ -510,6 +510,8 @@ contract KaliDAO is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
                             EXTENSIONS 
     //////////////////////////////////////////////////////////////*/
 
+    receive() external payable virtual {}
+
     modifier onlyExtension {
         if (!extensions[msg.sender]) revert NotExtension();
 
