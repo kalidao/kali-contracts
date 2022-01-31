@@ -2,7 +2,7 @@
 
 pragma solidity >=0.8.4;
 
-import '../../access/KaliOwnable.sol'; 
+import '../access/KaliOwnable.sol'; 
 
 /// @notice Modern and gas-optimized ERC-20 + EIP-2612 implementation with COMP-style governance and pausing.
 /// @dev Designed for subDAOs and/or "Loot"-like systems with remote ownership.
