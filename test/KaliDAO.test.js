@@ -31,6 +31,7 @@ describe("KaliDAO", function () {
     // console.log(kali.address)
     // console.log("alice eth balance", await alice.getBalance())
     // console.log("bob eth balance", await bob.getBalance())
+    
   })
 
   it("Should initialize with correct params", async function () {
@@ -1760,7 +1761,7 @@ describe("KaliDAO", function () {
     )
     const rs = ethers.utils.formatBytes32String("rs")
     expect(
-      kali.permit(proposer.address, bob.address, getBigNumber(1), 1941525801, 0, rs, rs).should.be.reverted
+      await kali.permit(proposer.address, bob.address, getBigNumber(1), 1941525801, 0, rs, rs).should.be.reverted
     )
   })
   it("Should allow delegateBySig if the signature is valid", async () => {
@@ -1813,7 +1814,35 @@ describe("KaliDAO", function () {
     )
     const rs = ethers.utils.formatBytes32String("rs")
     expect(
-      kali.delegateBySig(bob.address, 0, 1941525801, 0, rs, rs).should.be.reverted
+      await kali.delegateBySig(bob.address, 0, 1941525801, 0, rs, rs).should.be.reverted
     )
+  })
+  it.only("Should revert reentrant calls", async () => {
+    let ReentrantMock // ReentrantMock contract
+    let reentrantMock // ReentrantMock contract instance
+
+    Reentrant = await ethers.getContractFactory("ReentrantMock")
+    reentrant = await Reentrant.deploy()
+    await reentrant.deployed()
+
+    await kali.init(
+      "KALI",
+      "KALI",
+      "DOCS",
+      true,
+      [],
+      [],
+      [proposer.address],
+      [getBigNumber(1)],
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    )
+    
+    await kali.propose(9, "TEST", [reentrant.address], [1], [0x0])
+    await kali.vote(1, true)
+    await advanceTime(35)
+    await kali.processProposal(1)
+    expect(await kali.extensions(reentrant.address)).to.equal(true)
+    
+    expect(await kali.callExtension(reentrant.address, 0, "").should.be.reverted)
   })
 })
