@@ -19,25 +19,10 @@ interface IKaliDAOtribute {
         DOCS
     }
 
-    struct Proposal {
-        ProposalType proposalType;
-        string description;
-        address[] accounts; 
-        uint256[] amounts; 
-        bytes[] payloads; 
-        uint256 prevProposal;
-        uint96 yesVotes;
-        uint96 noVotes;
-        uint32 creationTime;
-        address proposer;
-    }
-
     struct ProposalState {
         bool passed;
         bool processed;
     }
-
-    function proposals(uint256 proposal) external view returns (Proposal memory);
 
     function proposalStates(uint256 proposal) external view returns (ProposalState memory);
 
