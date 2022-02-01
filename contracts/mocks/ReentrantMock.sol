@@ -17,7 +17,7 @@ contract ReentrantMock {
     }
 
     function callExtension(address, uint256, bytes memory) public virtual returns (bool mint, uint256 amountOut) {
-        //callExtensionMock(IReentrantMock(msg.sender));
+        callExtensionMock(IReentrantMock(msg.sender));
         mint = true;
         amountOut = 100;
     }
