@@ -11,9 +11,17 @@ import '../../utils/ReentrancyGuard.sol';
 contract KaliDAOcrowdsale is ReentrancyGuard {
     using SafeTransferLib for address;
 
-    event ExtensionSet(address dao, uint256 listId, address purchaseToken, uint8 purchaseMultiplier, uint96 purchaseLimit, uint32 saleEnds);
+    event ExtensionSet(
+        address indexed dao, 
+        uint256 listId, 
+        address purchaseToken, 
+        uint8 purchaseMultiplier, 
+        uint96 purchaseLimit, 
+        uint32 saleEnds, 
+        string details
+    );
 
-    event ExtensionCalled(address indexed dao, address indexed member, uint256 indexed amountOut);
+    event ExtensionCalled(address indexed dao, address indexed purchaser, uint256 amountOut);
 
     error NullMultiplier();
 
@@ -23,7 +31,7 @@ contract KaliDAOcrowdsale is ReentrancyGuard {
 
     error PurchaseLimit();
     
-    IKaliWhitelistManager public immutable whitelistManager;
+    IKaliWhitelistManager private immutable whitelistManager;
 
     mapping(address => Crowdsale) public crowdsales;
 
@@ -34,6 +42,7 @@ contract KaliDAOcrowdsale is ReentrancyGuard {
         uint96 purchaseLimit;
         uint96 amountPurchased;
         uint32 saleEnds;
+        string details;
     }
 
     constructor(IKaliWhitelistManager whitelistManager_) {
@@ -41,8 +50,8 @@ contract KaliDAOcrowdsale is ReentrancyGuard {
     }
 
     function setExtension(bytes calldata extensionData) public nonReentrant virtual {
-        (uint256 listId, address purchaseToken, uint8 purchaseMultiplier, uint96 purchaseLimit, uint32 saleEnds) 
-            = abi.decode(extensionData, (uint256, address, uint8, uint96, uint32));
+        (uint256 listId, address purchaseToken, uint8 purchaseMultiplier, uint96 purchaseLimit, uint32 saleEnds, string memory details) 
+            = abi.decode(extensionData, (uint256, address, uint8, uint96, uint32, string));
         
         if (purchaseMultiplier == 0) revert NullMultiplier();
 
@@ -52,10 +61,11 @@ contract KaliDAOcrowdsale is ReentrancyGuard {
             purchaseMultiplier: purchaseMultiplier,
             purchaseLimit: purchaseLimit,
             amountPurchased: 0,
-            saleEnds: saleEnds
+            saleEnds: saleEnds,
+            details: details
         });
 
-        emit ExtensionSet(msg.sender, listId, purchaseToken, purchaseMultiplier, purchaseLimit, saleEnds);
+        emit ExtensionSet(msg.sender, listId, purchaseToken, purchaseMultiplier, purchaseLimit, saleEnds, details);
     }
 
     function callExtension(address dao, uint256 amount) public payable nonReentrant virtual returns (uint256 amountOut) {
@@ -90,6 +100,6 @@ contract KaliDAOcrowdsale is ReentrancyGuard {
             IKaliShareManager(dao).mintShares(msg.sender, amountOut);
         }
 
-        emit ExtensionCalled(msg.sender, dao, amountOut);
+        emit ExtensionCalled(dao, msg.sender, amountOut);
     }
 }
