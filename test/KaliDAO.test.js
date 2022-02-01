@@ -1817,7 +1817,7 @@ describe("KaliDAO", function () {
       await kali.delegateBySig(bob.address, 0, 1941525801, 0, rs, rs).should.be.reverted
     )
   })
-  it.only("Should revert reentrant calls", async () => {
+  it("Should revert reentrant calls", async () => {
     let ReentrantMock // ReentrantMock contract
     let reentrantMock // ReentrantMock contract instance
 
