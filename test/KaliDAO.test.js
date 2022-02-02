@@ -1079,13 +1079,14 @@ describe("KaliDAO", function () {
     )
     // Set up payload for extension proposal
     let payload = ethers.utils.defaultAbiCoder.encode(
-      ["uint256", "address", "uint8", "uint96", "uint32"],
+      ["uint256", "address", "uint8", "uint96", "uint32", "string"],
       [
         1,
         "0x0000000000000000000000000000000000000000",
         2,
         getBigNumber(100),
         1672174799,
+        "DOCS"
       ]
     )
     await kali.propose(9, "TEST", [kaliDAOcrowdsale.address], [1], [payload])
@@ -1144,8 +1145,8 @@ describe("KaliDAO", function () {
     )
     // Set up payload for extension proposal
     let payload = ethers.utils.defaultAbiCoder.encode(
-      ["uint256", "address", "uint8", "uint96", "uint32"],
-      [1, purchaseToken.address, 2, getBigNumber(100), 1672174799]
+      ["uint256", "address", "uint8", "uint96", "uint32", "string"],
+      [1, purchaseToken.address, 2, getBigNumber(100), 1672174799, "DOCS"]
     )
     await kali.propose(9, "TEST", [kaliDAOcrowdsale.address], [1], [payload])
     await kali.vote(1, true)
