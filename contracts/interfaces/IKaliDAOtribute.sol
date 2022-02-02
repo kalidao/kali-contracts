@@ -35,4 +35,6 @@ interface IKaliDAOtribute {
     ) external returns (uint256 proposal);
 
     function cancelProposal(uint256 proposal) external;
+
+    function processProposal(uint256 proposal) external returns (bool didProposalPass, bytes[] memory results);
 }
