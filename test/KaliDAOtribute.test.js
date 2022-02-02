@@ -36,7 +36,7 @@ describe("Tribute", function () {
       await tribute.deployed()
     })
 
-    it("Should process ETH tribute proposal directly", async function () {
+    it("Should process tribute proposal directly", async function () {
         // Instantiate KaliDAO
         await kali.init(
           "KALI",
