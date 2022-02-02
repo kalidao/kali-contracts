@@ -100,6 +100,12 @@ contract KaliDAOtribute is ReentrancyGuard {
         emit TributeProposalCancelled(dao, proposal);
     }
 
+    function releaseTributeProposalAndProcess(IKaliDAOtribute dao, uint256 proposal) public virtual {
+        dao.processProposal(proposal);
+
+        releaseTributeProposal(dao, proposal);
+    }
+
     function releaseTributeProposal(IKaliDAOtribute dao, uint256 proposal) public nonReentrant virtual {
         Tribute storage trib = tributes[dao][proposal];
 
