@@ -35,6 +35,59 @@ describe("Tribute", function () {
       tribute = await Tribute.deploy()
       await tribute.deployed()
     })
+
+    it("Should process ETH tribute proposal directly", async function () {
+        // Instantiate KaliDAO
+        await kali.init(
+          "KALI",
+          "KALI",
+          "DOCS",
+          false,
+          [],
+          [],
+          [proposer.address],
+          [getBigNumber(10)],
+          [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        )
+        // Instantiate Tribute
+        await tribute.submitTributeProposal(
+            kali.address,
+            0,
+            "TRIBUTE",
+            [proposer.address],
+            [getBigNumber(1000)],
+            [0x00],
+            false,
+            "0x0000000000000000000000000000000000000000",
+            getBigNumber(50),
+            { value: getBigNumber(50), }
+        )
+
+        expect(await ethers.provider.getBalance(tribute.address)).to.equal(
+            getBigNumber(50)
+        )
+        expect(await ethers.provider.getBalance(kali.address)).to.equal(
+            getBigNumber(0)
+        )
+
+        expect(await kali.balanceOf(proposer.address)).to.equal(
+            getBigNumber(10)
+        )
+
+        await kali.sponsorProposal(1)
+        await kali.vote(1, true)
+        await advanceTime(35)
+        await tribute.releaseTributeProposalAndProcess(kali.address, 1)
+        expect(await ethers.provider.getBalance(tribute.address)).to.equal(
+            getBigNumber(0)
+        )
+        expect(await ethers.provider.getBalance(kali.address)).to.equal(
+            getBigNumber(50)
+        )
+        expect(await kali.balanceOf(proposer.address)).to.equal(
+            getBigNumber(1010)
+        )
+    })
   
     it("Should process ETH tribute proposal", async function () {
         // Instantiate KaliDAO
