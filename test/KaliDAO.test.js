@@ -1846,4 +1846,26 @@ describe("KaliDAO", function () {
     
     expect(await kali.callExtension(reentrant.address, 0, "").should.be.reverted)
   })
+  it("Should not call if null length payload", async () => {
+    let CallMock // CallMock contract
+    let callMock // CallMock contract instance
+
+    CallMock = await ethers.getContractFactory("CallMock")
+    callMock = await CallMock.deploy()
+    await callMock.deployed()
+
+    await kali.init(
+      "KALI",
+      "KALI",
+      "DOCS",
+      true,
+      [callMock.address],
+      [0x00],
+      [proposer.address],
+      [getBigNumber(1)],
+      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    )
+
+    expect(await callMock.called()).to.equal(false)
+  })
 })
