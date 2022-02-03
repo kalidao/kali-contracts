@@ -43,7 +43,7 @@ describe("Crowdsale", function () {
       )
       await purchaseToken.deployed()
 
-      Whitelist = await ethers.getContractFactory("KaliWhitelistManager")
+      Whitelist = await ethers.getContractFactory("KaliAccessManager")
       whitelist = await Whitelist.deploy()
       await whitelist.deployed()
       
