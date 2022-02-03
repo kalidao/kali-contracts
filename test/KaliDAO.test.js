@@ -1062,7 +1062,7 @@ describe("KaliDAO", function () {
     )
     // Instantiate KaliWhiteListManager
     let KaliWhitelistManager = await ethers.getContractFactory(
-      "KaliWhitelistManager"
+      "KaliAccessManager"
     )
     let kaliWhitelistManager = await KaliWhitelistManager.deploy()
     await kaliWhitelistManager.deployed()
@@ -1073,7 +1073,7 @@ describe("KaliDAO", function () {
     )
     await kaliDAOcrowdsale.deployed()
     // Set up whitelist
-    await kaliWhitelistManager.createWhitelist(
+    await kaliWhitelistManager.createList(
       [alice.address],
       "0x074b43252ffb4a469154df5fb7fe4ecce30953ba8b7095fe1e006185f017ad10"
     )
@@ -1128,7 +1128,7 @@ describe("KaliDAO", function () {
     )
     // Instantiate KaliWhiteListManager
     let KaliWhitelistManager = await ethers.getContractFactory(
-      "KaliWhitelistManager"
+      "KaliAccessManager"
     )
     let kaliWhitelistManager = await KaliWhitelistManager.deploy()
     await kaliWhitelistManager.deployed()
@@ -1139,7 +1139,7 @@ describe("KaliDAO", function () {
     )
     await kaliDAOcrowdsale.deployed()
     // Set up whitelist
-    await kaliWhitelistManager.createWhitelist(
+    await kaliWhitelistManager.createList(
       [alice.address],
       "0x074b43252ffb4a469154df5fb7fe4ecce30953ba8b7095fe1e006185f017ad10"
     )
