@@ -4,8 +4,6 @@ pragma solidity >=0.8.4;
 
 /// @notice Kali DAO membership extension interface.
 interface IKaliDAOextension {
-    function setExtension(bytes calldata extensionData) external;
-
     function callExtension(
         address account, 
         uint256 amount, 
