@@ -39,7 +39,7 @@ library MerkleProof {
 /// @notice Kali DAO whitelist manager.
 /// @author Modified from SushiSwap
 /// (https://github.com/sushiswap/trident/blob/master/contracts/pool/franchised/WhiteListManager.sol)
-contract KaliWhitelistManager {
+contract KaliAccessManager {
     using MerkleProof for bytes32[];
 
     /*///////////////////////////////////////////////////////////////
