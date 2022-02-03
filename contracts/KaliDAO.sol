@@ -556,7 +556,7 @@ contract KaliDAO is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
     ) public onlyExtension virtual {
         if (votingPeriod_ != 0 && votingPeriod_ <= 365 days) votingPeriod = votingPeriod_;
 
-        if (gracePeriod_ != 0 && gracePeriod_ <= 365 days) gracePeriod = gracePeriod_;
+        if (gracePeriod_ <= 365 days) gracePeriod = gracePeriod_;
 
         if (quorum_ <= 100) quorum = quorum_;
 
