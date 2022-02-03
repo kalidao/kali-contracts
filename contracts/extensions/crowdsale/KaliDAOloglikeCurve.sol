@@ -4,10 +4,10 @@ pragma solidity >=0.8.4;
 
 import '../../libraries/SafeTransferLib.sol';
 import '../../interfaces/IERC20minimal.sol';
-import '../../interfaces/IKaliWhitelistManager.sol';
+import '../../interfaces/IKaliAccessManager.sol';
 import '../../utils/ReentrancyGuard.sol';
 
-/// @notice Crowdsale contract that receives ETH or tokens to mint registered DAO tokens, including merkle whitelisting.
+/// @notice Crowdsale contract that receives ETH or tokens to mint registered DAO tokens, including merkle access lists.
 /// @dev This is meant to simulate a logarithmic curve with significantly less computation.
 contract KaliDAOloglikeCurve is ReentrancyGuard {
     using SafeTransferLib for address;
@@ -26,7 +26,7 @@ contract KaliDAOloglikeCurve is ReentrancyGuard {
 
     error SaleEnded();
 
-    error NotWhitelisted();
+    error NotListed();
 
     error NotPrice();
 
@@ -34,7 +34,7 @@ contract KaliDAOloglikeCurve is ReentrancyGuard {
 
     error InvalidVelocity();
     
-    IKaliWhitelistManager public immutable whitelistManager;
+    IKaliAccessManager public immutable accessManager;
 
     mapping(address => Crowdsale) public crowdsales;
 
@@ -49,8 +49,8 @@ contract KaliDAOloglikeCurve is ReentrancyGuard {
         uint32 saleEnds;
     }
 
-    constructor(IKaliWhitelistManager whitelistManager_) {
-        whitelistManager = whitelistManager_;
+    constructor(IKaliAccessManager accessManager_) {
+        accessManager = accessManager_;
     }
 
     function setExtension(bytes calldata extensionData) public nonReentrant virtual {
@@ -91,7 +91,7 @@ contract KaliDAOloglikeCurve is ReentrancyGuard {
         if (block.timestamp > sale.saleEnds) revert SaleEnded();
 
         if (sale.listId != 0) 
-            if (!whitelistManager.whitelistedAccounts(sale.listId, account)) revert NotWhitelisted();
+            if (!accessManager.listedAccounts(sale.listId, account)) revert NotListed();
         
         uint256 estPrice = estimatePrice(sale, amount);
 
