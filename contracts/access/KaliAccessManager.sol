@@ -4,7 +4,7 @@ pragma solidity >=0.8.4;
 
 import '../utils/Multicall.sol';
 
-/// @dev Merkle library adapted from https://github.com/miguelmota/merkletreejs[merkletreejs].
+/// @notice Merkle library adapted from https://github.com/miguelmota/merkletreejs[merkletreejs].
 library MerkleProof {
     /// @dev Returns true if a `leaf` can be proved to be a part of a Merkle tree
     /// defined by `root`. For this, a `proof` must be provided, containing
