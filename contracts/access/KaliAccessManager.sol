@@ -44,13 +44,13 @@ contract KaliAccessManager {
                             EVENTS
     //////////////////////////////////////////////////////////////*/
 
-    event WhitelistCreated(uint256 indexed listId, address indexed operator);
+    event ListCreated(uint256 indexed listId, address indexed operator);
 
-    event AccountWhitelisted(uint256 indexed listId, address indexed account, bool approved);
+    event AccountListed(uint256 indexed listId, address indexed account, bool approved);
 
     event MerkleRootSet(uint256 indexed listId, bytes32 merkleRoot);
 
-    event WhitelistJoined(uint256 indexed listId, address indexed account);
+    event ListJoined(uint256 indexed listId, address indexed account);
 
     /*///////////////////////////////////////////////////////////////
                             ERRORS
@@ -62,11 +62,11 @@ contract KaliAccessManager {
 
     error InvalidSignature();
 
-    error WhitelistClaimed();
+    error ListClaimed();
 
-    error InvalidWhiteList();
+    error InvalidList();
 
-    error NotOnWhitelist();
+    error NotOnList();
 
     /*///////////////////////////////////////////////////////////////
                             EIP-712 STORAGE
@@ -76,18 +76,18 @@ contract KaliAccessManager {
 
     bytes32 internal immutable INITIAL_DOMAIN_SEPARATOR;
 
-    bytes32 internal constant WHITELIST_TYPEHASH =
-        keccak256('Whitelist(address account,bool approved,uint256 deadline)');
+    bytes32 internal constant LIST_TYPEHASH =
+        keccak256('List(address account,bool approved,uint256 deadline)');
 
     /*///////////////////////////////////////////////////////////////
-                            WHITELIST STORAGE
+                            LIST STORAGE
     //////////////////////////////////////////////////////////////*/
 
     mapping(uint256 => address) public operatorOf;
 
     mapping(uint256 => bytes32) public merkleRoots;
 
-    mapping(uint256 => mapping(address => bool)) public whitelistedAccounts;
+    mapping(uint256 => mapping(address => bool)) public listedAccounts;
 
     uint256 public listCount;
 
@@ -99,8 +99,6 @@ contract KaliAccessManager {
         INITIAL_CHAIN_ID = block.chainid;
 
         INITIAL_DOMAIN_SEPARATOR = _computeDomainSeparator();
-
-        listCount = 0;
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -116,7 +114,7 @@ contract KaliAccessManager {
             keccak256(
                 abi.encode(
                     keccak256('EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)'),
-                    keccak256(bytes('KaliWhitelistManager')),
+                    keccak256(bytes('KaliAccessManager')),
                     keccak256('1'),
                     block.chainid,
                     address(this)
@@ -125,10 +123,10 @@ contract KaliAccessManager {
     }
 
     /*///////////////////////////////////////////////////////////////
-                            WHITELIST LOGIC
+                            LIST LOGIC
     //////////////////////////////////////////////////////////////*/
 
-    function createWhitelist(
+    function createList(
         address[] calldata accounts,
         bytes32 merkleRoot
     ) public virtual {
@@ -142,11 +140,11 @@ contract KaliAccessManager {
             // cannot realistically overflow on human timescales
             unchecked {
                 for (uint256 i; i < accounts.length; i++) {
-                    _whitelistAccount(listId, accounts[i], true);
+                    _listAccount(listId, accounts[i], true);
                 }
             }
 
-            emit WhitelistCreated(listId, msg.sender);
+            emit ListCreated(listId, msg.sender);
         }
 
         if (merkleRoot != '') {
@@ -156,11 +154,11 @@ contract KaliAccessManager {
         }
     }
 
-    function isWhitelisted(uint256 listId, address account) public view virtual returns (bool) {
-        return whitelistedAccounts[listId][account];
+    function isListed(uint256 listId, address account) public view virtual returns (bool) {
+        return listedAccounts[listId][account];
     }
 
-    function whitelistAccounts(
+    function listAccounts(
         uint256 listId,
         address[] calldata accounts,
         bool[] calldata approvals
@@ -170,12 +168,12 @@ contract KaliAccessManager {
         // cannot realistically overflow on human timescales
         unchecked {
             for (uint256 i; i < accounts.length; i++) {
-                _whitelistAccount(listId, accounts[i], approvals[i]);
+                _listAccount(listId, accounts[i], approvals[i]);
             }
         }
     }
 
-    function whitelistAccountBySig(
+    function listAccountBySig(
         uint256 listId,
         address account,
         bool approved,
@@ -190,7 +188,7 @@ contract KaliAccessManager {
             abi.encodePacked(
                 '\x19\x01',
                 DOMAIN_SEPARATOR(),
-                keccak256(abi.encode(WHITELIST_TYPEHASH, account, approved, deadline))
+                keccak256(abi.encode(LIST_TYPEHASH, account, approved, deadline))
             )
         );
 
@@ -198,17 +196,17 @@ contract KaliAccessManager {
 
         if (recoveredAddress != operatorOf[listId]) revert InvalidSignature();
 
-        _whitelistAccount(listId, account, approved);
+        _listAccount(listId, account, approved);
     }
 
-    function _whitelistAccount(
+    function _listAccount(
         uint256 listId,
         address account,
         bool approved
     ) internal virtual {
-        whitelistedAccounts[listId][account] = approved;
+        listedAccounts[listId][account] = approved;
 
-        emit AccountWhitelisted(listId, account, approved);
+        emit AccountListed(listId, account, approved);
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -223,19 +221,19 @@ contract KaliAccessManager {
         emit MerkleRootSet(listId, merkleRoot);
     }
 
-    function joinWhitelist(
+    function joinList(
         uint256 listId,
         address account,
         bytes32[] calldata merkleProof
     ) public virtual {
-        if (isWhitelisted(listId, account)) revert WhitelistClaimed();
+        if (isListed(listId, account)) revert ListClaimed();
 
-        if (merkleRoots[listId] == 0) revert InvalidWhiteList();
+        if (merkleRoots[listId] == 0) revert InvalidList();
 
-        if (!merkleProof.verify(merkleRoots[listId], keccak256(abi.encodePacked(account)))) revert NotOnWhitelist();
+        if (!merkleProof.verify(merkleRoots[listId], keccak256(abi.encodePacked(account)))) revert NotOnList();
 
-        _whitelistAccount(listId, account, true);
+        _listAccount(listId, account, true);
 
-        emit WhitelistJoined(listId, account);
+        emit ListJoined(listId, account);
     }
 }
