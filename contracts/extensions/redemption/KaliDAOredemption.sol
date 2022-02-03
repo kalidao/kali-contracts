@@ -80,13 +80,13 @@ contract KaliDAOredemption is ReentrancyGuard {
 
         uint256 totalSupply;
 
-        if (redmn.lootToken != address(0)) {
+        if (redmn.lootToken != address(0) && lootToRedeem != 0) {
             totalSupply += IERC20minimal(redmn.lootToken).totalSupply();
 
             IERC20minimal(redmn.lootToken).burnFrom(msg.sender, lootToRedeem);
         }
  
-        if (redmn.votesRedeemable) {
+        if (redmn.votesRedeemable && votesToRedeem != 0) {
             totalSupply += IERC20minimal(dao).totalSupply();
 
             IERC20minimal(dao).burnFrom(msg.sender, votesToRedeem);
