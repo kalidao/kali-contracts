@@ -4,7 +4,7 @@ pragma solidity >=0.8.4;
 
 import '../../libraries/SafeTransferLib.sol';
 import '../../interfaces/IKaliShareManager.sol';
-import '../../interfaces/IKaliWhitelistManager.sol';
+import '../../interfaces/IKaliAccessManager.sol';
 import '../../utils/ReentrancyGuard.sol';
 
 /// @notice Crowdsale contract that receives ETH or tokens to mint registered DAO tokens, including merkle whitelisting.
@@ -27,11 +27,11 @@ contract KaliDAOcrowdsale is ReentrancyGuard {
 
     error SaleEnded();
 
-    error NotWhitelisted();
+    error NotListed();
 
     error PurchaseLimit();
     
-    IKaliWhitelistManager private immutable whitelistManager;
+    IKaliAccessManager private immutable accessManager;
 
     mapping(address => Crowdsale) public crowdsales;
 
@@ -45,8 +45,8 @@ contract KaliDAOcrowdsale is ReentrancyGuard {
         string details;
     }
 
-    constructor(IKaliWhitelistManager whitelistManager_) {
-        whitelistManager = whitelistManager_;
+    constructor(IKaliAccessManager accessManager_) {
+        accessManager = accessManager_;
     }
 
     function setExtension(bytes calldata extensionData) public nonReentrant virtual {
@@ -74,7 +74,7 @@ contract KaliDAOcrowdsale is ReentrancyGuard {
         if (block.timestamp > sale.saleEnds) revert SaleEnded();
 
         if (sale.listId != 0) 
-            if (!whitelistManager.whitelistedAccounts(sale.listId, msg.sender)) revert NotWhitelisted();
+            if (!accessManager.listedAccounts(sale.listId, msg.sender)) revert NotListed();
 
         if (sale.purchaseToken == address(0)) {
             amountOut = msg.value * sale.purchaseMultiplier;
