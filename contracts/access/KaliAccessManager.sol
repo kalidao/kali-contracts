@@ -4,14 +4,12 @@ pragma solidity >=0.8.4;
 
 import '../utils/Multicall.sol';
 
-// @dev library adapted from https://github.com/miguelmota/merkletreejs[merkletreejs].
+/// @dev Merkle library adapted from https://github.com/miguelmota/merkletreejs[merkletreejs].
 library MerkleProof {
-    /**
-     * @dev Returns true if a `leaf` can be proved to be a part of a Merkle tree
-     * defined by `root`. For this, a `proof` must be provided, containing
-     * sibling hashes on the branch from the leaf to the root of the tree. Each
-     * pair of leaves and each pair of pre-images are assumed to be sorted.
-     */
+    /// @dev Returns true if a `leaf` can be proved to be a part of a Merkle tree
+    /// defined by `root`. For this, a `proof` must be provided, containing
+    /// sibling hashes on the branch from the leaf to the root of the tree. Each
+    /// pair of leaves and each pair of pre-images are assumed to be sorted.
     function verify(
         bytes32[] memory proof,
         bytes32 root,
@@ -31,12 +29,12 @@ library MerkleProof {
             }
         }
 
-        // Check if the computed hash (root) is equal to the provided root
+        // check if the computed hash (root) is equal to the provided root
         return computedHash == root;
     }
 }
 
-/// @notice Kali DAO whitelist manager.
+/// @notice Kali DAO access manager.
 /// @author Modified from SushiSwap
 /// (https://github.com/sushiswap/trident/blob/master/contracts/pool/franchised/WhiteListManager.sol)
 contract KaliAccessManager {
@@ -240,5 +238,4 @@ contract KaliAccessManager {
 
         emit WhitelistJoined(listId, account);
     }
-
 }
