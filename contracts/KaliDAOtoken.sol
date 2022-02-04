@@ -1,8 +1,4 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-
-pragma solidity >=0.8.4;
-
-// SPDX-License-Identifier: GPL-3.0-or-later
  
 pragma solidity >=0.8.4;
 
@@ -119,6 +115,7 @@ abstract contract KaliDAOtoken {
  
     function transfer(address to, uint256 amount) public notPaused virtual returns (bool) {
         balanceOf[msg.sender] -= amount;
+        
         // cannot overflow because the sum of all user
         // balances can't exceed the max uint256 value
         unchecked {
@@ -167,6 +164,7 @@ abstract contract KaliDAOtoken {
         bytes32 s
     ) public virtual {
         if (block.timestamp > deadline) revert SignatureExpired();
+        
         // cannot realistically overflow on human timescales
         unchecked {
             bytes32 digest = keccak256(
@@ -177,9 +175,7 @@ abstract contract KaliDAOtoken {
                 )
             );
             address recoveredAddress = ecrecover(digest, v, r, s);
- 
             if (recoveredAddress == address(0) || recoveredAddress != owner) revert InvalidSignature();
- 
             allowance[recoveredAddress][spender] = value;
         }
  
@@ -305,18 +301,14 @@ abstract contract KaliDAOtoken {
         if (srcRep != dstRep && amount != 0)
             if (srcRep != address(0)) {
                 uint256 srcRepNum = numCheckpoints[srcRep];
-               
                 uint256 srcRepOld = srcRepNum != 0 ? checkpoints[srcRep][srcRepNum - 1].votes : 0;
- 
                 uint256 srcRepNew = srcRepOld - amount;
  
                 _writeCheckpoint(srcRep, srcRepNum, srcRepOld, srcRepNew);
             }
             if (dstRep != address(0)) {
                 uint256 dstRepNum = numCheckpoints[dstRep];
- 
                 uint256 dstRepOld = dstRepNum != 0 ? checkpoints[dstRep][dstRepNum - 1].votes : 0;
- 
                 uint256 dstRepNew = dstRepOld + amount;
  
                 _writeCheckpoint(dstRep, dstRepNum, dstRepOld, dstRepNew);
@@ -380,6 +372,7 @@ abstract contract KaliDAOtoken {
     function burnFrom(address from, uint256 amount) public virtual {
         if (allowance[from][msg.sender] != type(uint256).max)
             allowance[from][msg.sender] -= amount;
+            
         _burn(from, amount);
     }
  
