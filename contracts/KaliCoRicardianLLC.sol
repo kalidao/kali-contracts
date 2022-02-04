@@ -8,24 +8,18 @@ import './utils/Multicall.sol';
 /// @notice KaliCo Ricardian LLC NFT minter.
 contract KaliCoRicardianLLC is ERC721, Multicall {
     error NotGovernance();
-
     error NotFee();
-
     error ETHtransferFailed();
 
     address public governance;
-
     string public commonURI;
-
     string public masterOperatingAgreement;
-
     uint256 public mintFee;
 
     mapping(uint256 => string) public tokenDetails;
 
     modifier onlyGovernance {
         if (msg.sender != governance) revert NotGovernance();
-
         _;
     }
 
@@ -37,11 +31,8 @@ contract KaliCoRicardianLLC is ERC721, Multicall {
         uint256 mintFee_
     ) ERC721(name_, symbol_) {
         governance = msg.sender;
-
         commonURI = commonURI_;
-
         masterOperatingAgreement = masterOperatingAgreement_;
-
         mintFee = mintFee_;
     }
 
