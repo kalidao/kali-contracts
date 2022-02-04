@@ -82,6 +82,7 @@ contract KaliDAO is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
         CALL, // call contracts
         VPERIOD, // set `votingPeriod`
         GPERIOD, // set `gracePeriod`
+        RSTART, // set `redemptionStart`
         QUORUM, // set `quorum`
         SUPERMAJORITY, // set `supermajority`
         TYPE, // set `VoteType` to `ProposalType`
@@ -133,7 +134,7 @@ contract KaliDAO is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
         address[] calldata accounts_,
         uint256[] calldata votes_,
         uint256[] calldata loots_,
-        uint32[19] memory govSettings_
+        uint32[20] memory govSettings_
     ) public payable nonReentrant virtual {
         if (extensions_.length != extensionsData_.length) revert NoArrayParity();
         if (votingPeriod != 0) revert Initialized();
@@ -165,6 +166,7 @@ contract KaliDAO is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
                     extensions[extensions_[i]] = true;
                     if (extensionsData_[i].length > 1) {
                         (bool success, ) = extensions_[i].call(extensionsData_[i]);
+
                         if (!success) revert InitCallFail();
                     }
                 }
@@ -176,19 +178,21 @@ contract KaliDAO is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
         redemptionStart = govSettings_[4];
         quorum = govSettings_[5];
         supermajority = govSettings_[6];
+ 
         // set initial vote types
         proposalVoteTypes[ProposalType.MINT] = VoteType(govSettings_[7]);
         proposalVoteTypes[ProposalType.BURN] = VoteType(govSettings_[8]);
         proposalVoteTypes[ProposalType.CALL] = VoteType(govSettings_[9]);
         proposalVoteTypes[ProposalType.VPERIOD] = VoteType(govSettings_[10]);
         proposalVoteTypes[ProposalType.GPERIOD] = VoteType(govSettings_[11]);
-        proposalVoteTypes[ProposalType.QUORUM] = VoteType(govSettings_[12]);
-        proposalVoteTypes[ProposalType.SUPERMAJORITY] = VoteType(govSettings_[13]);
-        proposalVoteTypes[ProposalType.TYPE] = VoteType(govSettings_[14]);
-        proposalVoteTypes[ProposalType.PAUSE] = VoteType(govSettings_[15]);
-        proposalVoteTypes[ProposalType.EXTENSION] = VoteType(govSettings_[16]);
-        proposalVoteTypes[ProposalType.ESCAPE] = VoteType(govSettings_[17]);
-        proposalVoteTypes[ProposalType.DOCS] = VoteType(govSettings_[18]);
+        proposalVoteTypes[ProposalType.RSTART] = VoteType(govSettings_[12]);
+        proposalVoteTypes[ProposalType.QUORUM] = VoteType(govSettings_[13]);
+        proposalVoteTypes[ProposalType.SUPERMAJORITY] = VoteType(govSettings_[14]);
+        proposalVoteTypes[ProposalType.TYPE] = VoteType(govSettings_[15]);
+        proposalVoteTypes[ProposalType.PAUSE] = VoteType(govSettings_[16]);
+        proposalVoteTypes[ProposalType.EXTENSION] = VoteType(govSettings_[17]);
+        proposalVoteTypes[ProposalType.ESCAPE] = VoteType(govSettings_[18]);
+        proposalVoteTypes[ProposalType.DOCS] = VoteType(govSettings_[19]);
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -219,8 +223,10 @@ contract KaliDAO is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
         if (proposalType == ProposalType.TYPE) if (amounts[0] > 11 || amounts[1] > 3 || amounts.length != 2) revert TypeBounds();
  
         bool selfSponsor;
+ 
         // if member or extension is making proposal, include sponsorship
         if (balanceOf[msg.sender] != 0 || extensions[msg.sender]) selfSponsor = true;
+ 
         // cannot realistically overflow on human timescales
         unchecked {
             proposalCount++;
@@ -381,6 +387,9 @@ contract KaliDAO is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
                
                 if (prop.proposalType == ProposalType.GPERIOD)
                     if (prop.amounts[0] != 0) gracePeriod = uint32(prop.amounts[0]);
+                
+                if (prop.proposalType == ProposalType.RSTART)
+                    if (prop.amounts[0] != 0) redemptionStart = uint32(prop.amounts[0]);
                
                 if (prop.proposalType == ProposalType.QUORUM)
                     if (prop.amounts[0] != 0) quorum = uint32(prop.amounts[0]);
@@ -491,7 +500,7 @@ contract KaliDAO is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
         uint256 amount
     ) internal virtual {
         bool callStatus;
-        
+
         assembly {
             // get a pointer to some free memory
             let freeMemoryPointer := mload(0x40)
@@ -503,6 +512,7 @@ contract KaliDAO is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
             // we use 68 because the calldata length is 4 + 32 * 2
             callStatus := call(gas(), token, 0, freeMemoryPointer, 68, 0, 0)
         }
+
         if (!_didLastOptionalReturnCallSucceed(callStatus)) revert TransferFailed();
     }
 
@@ -519,10 +529,10 @@ contract KaliDAO is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
                 revert(0, returnDataSize)
             }
             switch returnDataSize
+
             case 32 {
                 // copy the return data into memory
                 returndatacopy(0, 0, returnDataSize)
-
                 // set success to whether it returned true
                 success := iszero(iszero(mload(0)))
             }
