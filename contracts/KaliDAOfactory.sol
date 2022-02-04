@@ -22,9 +22,9 @@ contract KaliDAOfactory is Multicall {
 
     error NullDeploy();
 
-    address payable public immutable kaliMaster;
+    address payable private immutable kaliMaster;
 
-    IRicardianLLC public immutable ricardianLLC;
+    IRicardianLLC private immutable ricardianLLC;
 
     constructor(address payable kaliMaster_, IRicardianLLC ricardianLLC_) {
         kaliMaster = kaliMaster_;
@@ -45,7 +45,7 @@ contract KaliDAOfactory is Multicall {
     ) public payable virtual returns (KaliDAO kaliDAO) {
         kaliDAO = KaliDAO(_cloneAsMinimalProxy(kaliMaster, name_));
         
-        kaliDAO.init{value: msg.value}(
+        kaliDAO.init(
             name_, 
             symbol_, 
             docs_,
@@ -60,7 +60,7 @@ contract KaliDAOfactory is Multicall {
         bytes memory docs = bytes(docs_);
 
         if (docs.length == 0) {
-            ricardianLLC.mintLLC(address(kaliDAO));
+            ricardianLLC.mintLLC{value: msg.value}(address(kaliDAO));
         }
 
         emit DAOdeployed(kaliDAO, name_, symbol_, docs_, paused_, extensions_, extensionsData_, voters_, shares_, govSettings_);
