@@ -495,23 +495,18 @@ contract KaliDAO is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
         uint256 amount
     ) internal virtual {
         bool callStatus;
-
+        
         assembly {
             // get a pointer to some free memory
             let freeMemoryPointer := mload(0x40)
-
             // write the abi-encoded calldata to memory piece by piece:
             mstore(freeMemoryPointer, 0xa9059cbb00000000000000000000000000000000000000000000000000000000) // begin with the function selector
-            
             mstore(add(freeMemoryPointer, 4), and(to, 0xffffffffffffffffffffffffffffffffffffffff)) // mask and append the "to" argument
-            
             mstore(add(freeMemoryPointer, 36), amount) // finally append the "amount" argument - no mask as it's a full 32 byte value
-
             // call the token and store if it succeeded or not
             // we use 68 because the calldata length is 4 + 32 * 2
             callStatus := call(gas(), token, 0, freeMemoryPointer, 68, 0, 0)
         }
-
         if (!_didLastOptionalReturnCallSucceed(callStatus)) revert TransferFailed();
     }
 
@@ -519,7 +514,6 @@ contract KaliDAO is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
         assembly {
             // get how many bytes the call returned
             let returnDataSize := returndatasize()
-
             // if the call reverted:
             if iszero(callStatus) {
                 // copy the revert message into memory
@@ -528,9 +522,7 @@ contract KaliDAO is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
                 // revert with the same message
                 revert(0, returnDataSize)
             }
-
             switch returnDataSize
-            
             case 32 {
                 // copy the return data into memory
                 returndatacopy(0, 0, returnDataSize)
