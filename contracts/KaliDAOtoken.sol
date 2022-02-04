@@ -176,7 +176,6 @@ abstract contract KaliDAOtoken {
             if (recoveredAddress == address(0) || recoveredAddress != owner) revert InvalidSignature();
             allowance[recoveredAddress][spender] = value;
         }
-        
         emit Approval(owner, spender, value);
     }
  
