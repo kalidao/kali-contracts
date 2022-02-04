@@ -176,7 +176,7 @@ abstract contract KaliDAOtoken {
             if (recoveredAddress == address(0) || recoveredAddress != owner) revert InvalidSignature();
             allowance[recoveredAddress][spender] = value;
         }
- 
+        
         emit Approval(owner, spender, value);
     }
  
@@ -243,7 +243,6 @@ abstract contract KaliDAOtoken {
         unchecked {
             if (nonce != nonces[signatory]++) revert InvalidNonce();
         }
- 
         _delegate(signatory, delegatee);
     }
  
@@ -278,13 +277,11 @@ abstract contract KaliDAOtoken {
                 }
             }
         return checkpoints[account][lower].votes;
- 
         }
     }
  
     function _delegate(address delegator, address delegatee) internal virtual {
         address currentDelegate = delegates(delegator);
-
         _delegates[delegator] = delegatee;
         _moveDelegates(currentDelegate, delegatee, balanceOf[delegator]);
  
