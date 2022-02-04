@@ -17,7 +17,7 @@ contract KaliDAOfactory is Multicall {
         address[] voters,
         uint256[] shares,
         uint256[] loots,
-        uint32[19] govSettings
+        uint32[20] govSettings
     );
  
     error NullDeploy();
@@ -39,7 +39,7 @@ contract KaliDAOfactory is Multicall {
         address[] memory accounts_,
         uint256[] memory votes_,
         uint256[] memory loots_,
-        uint32[19] memory govSettings_
+        uint32[20] memory govSettings_
     ) public payable virtual returns (KaliDAO kaliDAO) {
         kaliDAO = KaliDAO(_cloneAsMinimalProxy(kaliMaster, name_));
        
