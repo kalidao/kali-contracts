@@ -115,7 +115,6 @@ abstract contract KaliDAOtoken {
  
     function transfer(address to, uint256 amount) public notPaused virtual returns (bool) {
         balanceOf[msg.sender] -= amount;
-        
         // cannot overflow because the sum of all user
         // balances can't exceed the max uint256 value
         unchecked {
@@ -137,7 +136,6 @@ abstract contract KaliDAOtoken {
             allowance[from][msg.sender] -= amount;
  
         balanceOf[from] -= amount;
- 
         // cannot overflow because the sum of all user
         // balances can't exceed the max uint256 value
         unchecked {
@@ -341,7 +339,6 @@ abstract contract KaliDAOtoken {
  
     function _mint(address to, uint256 amount) internal virtual {
         totalSupply += amount;
- 
         // cannot overflow because the sum of all user
         // balances can't exceed the max uint256 value
         unchecked {
@@ -354,7 +351,6 @@ abstract contract KaliDAOtoken {
  
     function _burn(address from, uint256 amount) internal virtual {
         balanceOf[from] -= amount;
- 
         // cannot underflow because a user's balance
         // will never be larger than the total supply
         unchecked {
