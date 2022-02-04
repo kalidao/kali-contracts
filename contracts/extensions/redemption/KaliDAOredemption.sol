@@ -17,7 +17,7 @@ contract KaliDAOredemption is ReentrancyGuard {
 
     event ExtensionSet(address indexed dao, address lootToken, uint32 redemptionStarts, bool votesRedeemable);
 
-    event ExtensionCalled(address indexed dao, address indexed member, uint256 lootToRedeem, uint256 votesToRedeem);
+    event ExtensionCalled(address indexed dao, address indexed member, uint256 votesToRedeem, uint256 lootToRedeem);
 
     event LootDeployed(address indexed dao, string name, string symbol, bool paused, address[] voters, uint256[] shares);
 
@@ -71,8 +71,8 @@ contract KaliDAOredemption is ReentrancyGuard {
     function callExtension(
         address dao, 
         address[] calldata tokensToClaim, 
-        uint256 lootToRedeem,
-        uint256 votesToRedeem
+        uint256 votesToRedeem,
+        uint256 lootToRedeem
     ) public nonReentrant virtual {
         Redemption storage redmn = redemptions[dao];
 
@@ -80,22 +80,22 @@ contract KaliDAOredemption is ReentrancyGuard {
 
         uint256 totalSupply;
 
-        if (redmn.lootToken != address(0) && lootToRedeem != 0) {
-            totalSupply += IERC20minimal(redmn.lootToken).totalSupply();
-
-            IERC20minimal(redmn.lootToken).burnFrom(msg.sender, lootToRedeem);
-        }
- 
-        if (redmn.votesRedeemable && votesToRedeem != 0) {
+        if (redmn.votesRedeemable) {
             totalSupply += IERC20minimal(dao).totalSupply();
 
-            IERC20minimal(dao).burnFrom(msg.sender, votesToRedeem);
+            if (votesToRedeem != 0) IERC20minimal(dao).burnFrom(msg.sender, votesToRedeem);
         }
 
+        if (redmn.lootToken != address(0)) {
+            totalSupply += IERC20minimal(redmn.lootToken).totalSupply();
+
+            if (lootToRedeem != 0) IERC20minimal(redmn.lootToken).burnFrom(msg.sender, lootToRedeem);
+        }
+ 
         for (uint256 i; i < tokensToClaim.length;) {
             // calculate fair share of given token for redemption
-            uint256 amountToRedeem = (lootToRedeem + votesToRedeem) * 
-                IERC20minimal(tokensToClaim[i]).balanceOf(dao) / 
+            uint256 amountToRedeem = ((votesToRedeem + lootToRedeem) * 
+                IERC20minimal(tokensToClaim[i]).balanceOf(dao)) / 
                 totalSupply;
             
             // `transferFrom` DAO to redeemer
@@ -112,7 +112,7 @@ contract KaliDAOredemption is ReentrancyGuard {
             }
         }
 
-        emit ExtensionCalled(dao, msg.sender, lootToRedeem, votesToRedeem);
+        emit ExtensionCalled(dao, msg.sender, votesToRedeem, lootToRedeem);
     }
 
     /*///////////////////////////////////////////////////////////////
