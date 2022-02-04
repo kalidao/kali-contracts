@@ -165,7 +165,6 @@ contract KaliDAO is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
                     extensions[extensions_[i]] = true;
                     if (extensionsData_[i].length > 1) {
                         (bool success, ) = extensions_[i].call(extensionsData_[i]);
-
                         if (!success) revert InitCallFail();
                     }
                 }
@@ -177,7 +176,6 @@ contract KaliDAO is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
         redemptionStart = govSettings_[4];
         quorum = govSettings_[5];
         supermajority = govSettings_[6];
- 
         // set initial vote types
         proposalVoteTypes[ProposalType.MINT] = VoteType(govSettings_[7]);
         proposalVoteTypes[ProposalType.BURN] = VoteType(govSettings_[8]);
@@ -221,10 +219,8 @@ contract KaliDAO is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
         if (proposalType == ProposalType.TYPE) if (amounts[0] > 11 || amounts[1] > 3 || amounts.length != 2) revert TypeBounds();
  
         bool selfSponsor;
- 
         // if member or extension is making proposal, include sponsorship
         if (balanceOf[msg.sender] != 0 || extensions[msg.sender]) selfSponsor = true;
- 
         // cannot realistically overflow on human timescales
         unchecked {
             proposalCount++;
