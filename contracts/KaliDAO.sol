@@ -153,7 +153,7 @@ contract KaliDAO is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
         address[] calldata voters_,
         uint256[] calldata shares_,
         uint32[16] memory govSettings_
-    ) public payable nonReentrant virtual {
+    ) public nonReentrant virtual {
         if (extensions_.length != extensionsData_.length) revert NoArrayParity();
 
         if (votingPeriod != 0) revert Initialized();
@@ -174,7 +174,7 @@ contract KaliDAO is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
                 for (uint256 i; i < extensions_.length; i++) {
                     extensions[extensions_[i]] = true;
 
-                    if (extensionsData_[i].length > 1) {
+                    if (extensionsData_[i].length > 3) {
                         (bool success, ) = extensions_[i].call(extensionsData_[i]);
 
                         if (!success) revert InitCallFail();
@@ -451,7 +451,7 @@ contract KaliDAO is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
                         if (prop.amounts[i] != 0) 
                             extensions[prop.accounts[i]] = !extensions[prop.accounts[i]];
                     
-                        if (prop.payloads[i].length > 1) IKaliDAOextension(prop.accounts[i])
+                        if (prop.payloads[i].length > 3) IKaliDAOextension(prop.accounts[i])
                             .setExtension(prop.payloads[i]);
                     }
                 
@@ -541,31 +541,5 @@ contract KaliDAO is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
 
     function burnShares(address from, uint256 amount) public onlyExtension virtual {
         _burn(from, amount);
-    }
-
-    function updateGovernance(
-        uint32 votingPeriod_,
-        uint32 gracePeriod_, 
-        uint32 quorum_, 
-        uint32 supermajority_,
-        bool flipPause
-    ) public onlyExtension virtual {
-        if (votingPeriod_ != 0 && votingPeriod_ <= 365 days) votingPeriod = votingPeriod_;
-
-        if (gracePeriod_ <= 365 days) gracePeriod = gracePeriod_;
-
-        if (quorum_ <= 100) quorum = quorum_;
-
-        if (supermajority_ > 51 && supermajority_ <= 100) supermajority = supermajority_;
-
-        if (flipPause) _flipPause();
-    }
-
-    function updateExtension(address extension) public onlyExtension virtual {
-        extensions[extension] = !extensions[extension];
-    }
-
-    function escapeProposal(uint256 proposal) public onlyExtension virtual {
-        delete proposals[proposal];
     }
 }
