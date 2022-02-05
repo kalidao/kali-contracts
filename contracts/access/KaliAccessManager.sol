@@ -2,6 +2,7 @@
 
 pragma solidity >=0.8.4;
 
+import '../libraries/MerkleProof.sol';
 import '../utils/Multicall.sol';
 
 /// @notice Merkle library adapted from https://github.com/miguelmota/merkletreejs[merkletreejs].
@@ -57,6 +58,8 @@ contract KaliAccessManager {
     //////////////////////////////////////////////////////////////*/
 
     error NotOperator();
+    
+    error NoArrayParity();
 
     error SignatureExpired();
 
@@ -126,13 +129,12 @@ contract KaliAccessManager {
                             LIST LOGIC
     //////////////////////////////////////////////////////////////*/
 
-    function createList(
-        address[] calldata accounts,
-        bytes32 merkleRoot
-    ) public virtual {
-        listCount++;
+    function isListed(uint256 listId, address account) public view virtual returns (bool) {
+        return listedAccounts[listId][account];
+    }
 
-        uint256 listId = listCount;
+    function createList(address[] calldata accounts, bytes32 merkleRoot) public virtual {
+        uint256 listId = listCount++;
 
         operatorOf[listId] = msg.sender;
 
@@ -154,16 +156,14 @@ contract KaliAccessManager {
         }
     }
 
-    function isListed(uint256 listId, address account) public view virtual returns (bool) {
-        return listedAccounts[listId][account];
-    }
-
     function listAccounts(
         uint256 listId,
         address[] calldata accounts,
         bool[] calldata approvals
     ) public virtual {
         if (msg.sender != operatorOf[listId]) revert NotOperator();
+
+        if (accounts.length != approvals.length) revert NoArrayParity();
 
         // cannot realistically overflow on human timescales
         unchecked {
@@ -194,7 +194,7 @@ contract KaliAccessManager {
 
         address recoveredAddress = ecrecover(digest, v, r, s);
 
-        if (recoveredAddress != operatorOf[listId]) revert InvalidSignature();
+        if (recoveredAddress == address(0) || recoveredAddress != operatorOf[listId]) revert InvalidSignature();
 
         _listAccount(listId, account, approved);
     }
