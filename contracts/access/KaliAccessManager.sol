@@ -104,7 +104,7 @@ contract KaliAccessManager is Multicall {
     }
 
     function createList(address[] calldata accounts, bytes32 merkleRoot) public virtual {
-        uint256 listId = listCount++;
+        uint256 listId = ++listCount;
 
         operatorOf[listId] = msg.sender;
 
