@@ -3,12 +3,13 @@
 pragma solidity >=0.8.4;
 
 import '../../libraries/SafeTransferLib.sol';
-import '../../interfaces/IKaliShareManager.sol';
 import '../../interfaces/IKaliAccessManager.sol';
+import '../../interfaces/IKaliShareManager.sol';
+import '../../utils/Multicall.sol';
 import '../../utils/ReentrancyGuard.sol';
 
-/// @notice Crowdsale contract that receives ETH or tokens to mint registered DAO tokens, including merkle access lists.
-contract KaliDAOcrowdsale is ReentrancyGuard {
+/// @notice Crowdsale contract that receives ETH or ERC-20 to mint registered DAO tokens, including merkle access lists.
+contract KaliDAOcrowdsale is Multicall, ReentrancyGuard {
     using SafeTransferLib for address;
 
     event ExtensionSet(
@@ -66,6 +67,14 @@ contract KaliDAOcrowdsale is ReentrancyGuard {
         });
 
         emit ExtensionSet(msg.sender, listId, purchaseToken, purchaseMultiplier, purchaseLimit, saleEnds, details);
+    }
+
+    function joinList(uint256 listId, bytes32[] calldata merkleProof) public virtual {
+        accessManager.joinList(
+            listId,
+            msg.sender,
+            merkleProof
+        );
     }
 
     function callExtension(address dao, uint256 amount) public payable nonReentrant virtual returns (uint256 amountOut) {
