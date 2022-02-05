@@ -8,7 +8,7 @@ import '../utils/Multicall.sol';
 /// @notice Kali DAO access manager.
 /// @author Modified from SushiSwap
 /// (https://github.com/sushiswap/trident/blob/master/contracts/pool/franchised/WhiteListManager.sol)
-contract KaliAccessManager {
+contract KaliAccessManager is Multicall {
     using MerkleProof for bytes32[];
 
     /*///////////////////////////////////////////////////////////////
