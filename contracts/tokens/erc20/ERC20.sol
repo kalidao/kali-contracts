@@ -140,7 +140,7 @@ abstract contract ERC20 {
         unchecked {
             bytes32 digest = keccak256(
                 abi.encodePacked(
-                    "\x19\x01",
+                    '\x19\x01',
                     DOMAIN_SEPARATOR(),
                     keccak256(
                         abi.encode(
