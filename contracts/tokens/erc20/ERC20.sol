@@ -2,11 +2,13 @@
 
 pragma solidity >=0.8.4;
 
+import '../../access/KaliOwnable.sol';
+
 /// @notice Modern and gas efficient ERC20 + EIP-2612 implementation.
 /// @author Modified from Solmate (https://github.com/Rari-Capital/solmate/blob/main/src/tokens/ERC20.sol)
 /// License-Identifier: AGPL-3.0-only
 /// @dev Do not manually set balances without updating totalSupply, as the sum of all user balances must not exceed it.
-abstract contract ERC20 {
+contract KaliERC20 is KaliOwnable {
     /*///////////////////////////////////////////////////////////////
                             EVENTS
     //////////////////////////////////////////////////////////////*/
@@ -15,9 +17,17 @@ abstract contract ERC20 {
 
     event Approval(address indexed owner, address indexed spender, uint256 amount);
 
+    event PauseFlipped(bool paused);
+
     /*///////////////////////////////////////////////////////////////
                             ERRORS
     //////////////////////////////////////////////////////////////*/
+
+    error Paused();
+
+    error Initialized();
+
+    error NoArrayParity();
 
     error SignatureExpired();
 
@@ -31,7 +41,9 @@ abstract contract ERC20 {
 
     string public symbol;
 
-    uint8 public immutable decimals;
+    string public details;
+
+    uint8 public constant decimals = 18;
 
     /*///////////////////////////////////////////////////////////////
                             ERC-20 STORAGE
@@ -47,30 +59,61 @@ abstract contract ERC20 {
                             EIP-2612 STORAGE
     //////////////////////////////////////////////////////////////*/
 
-    uint256 internal immutable INITIAL_CHAIN_ID;
+    uint256 internal INITIAL_CHAIN_ID;
 
-    bytes32 internal immutable INITIAL_DOMAIN_SEPARATOR;
+    bytes32 internal INITIAL_DOMAIN_SEPARATOR;
 
     mapping(address => uint256) public nonces;
+
+    /*///////////////////////////////////////////////////////////////
+                            DAO STORAGE
+    //////////////////////////////////////////////////////////////*/
+
+    bool public paused;
+
+    modifier notPaused() {
+        if (paused) revert Paused();
+
+        _;
+    }
 
     /*///////////////////////////////////////////////////////////////
                             CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
 
-    constructor(
-        string memory name_,
-        string memory symbol_,
-        uint8 decimals_
-    ) {
+    function init(
+        string calldata name_,
+        string calldata symbol_,
+        string calldata details_,
+        address[] calldata accounts_,
+        uint256[] calldata amounts_,
+        bool paused_,
+        address owner_
+    ) public virtual {
+        if (INITIAL_CHAIN_ID != 0) revert Initialized();
+
+        if (accounts_.length != amounts_.length) revert NoArrayParity();
+
         name = name_;
 
         symbol = symbol_;
 
-        decimals = decimals_;
+        details = details_;
+
+        paused = paused_;
 
         INITIAL_CHAIN_ID = block.chainid;
 
         INITIAL_DOMAIN_SEPARATOR = _computeDomainSeparator();
+
+        // cannot realistically overflow on human timescales
+        unchecked {
+            for (uint256 i; i < accounts_.length; i++) {
+                _mint(accounts_[i], amounts_[i]);
+            }
+        }
+
+        KaliOwnable._init(owner_);
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -85,7 +128,7 @@ abstract contract ERC20 {
         return true;
     }
 
-    function transfer(address to, uint256 amount) public virtual returns (bool) {
+    function transfer(address to, uint256 amount) public notPaused virtual returns (bool) {
         balanceOf[msg.sender] -= amount;
 
         // cannot overflow because the sum of all user
@@ -103,7 +146,7 @@ abstract contract ERC20 {
         address from,
         address to,
         uint256 amount
-    ) public virtual returns (bool) {
+    ) public notPaused virtual returns (bool) {
         uint256 allowed = allowance[from][msg.sender]; // saves gas for limited approvals
 
         if (allowed != type(uint256).max) allowance[from][msg.sender] = allowed - amount;
@@ -210,5 +253,35 @@ abstract contract ERC20 {
         }
 
         emit Transfer(from, address(0), amount);
+    }
+
+    function burn(uint256 amount) public virtual {
+        _burn(msg.sender, amount);
+    }
+
+    function burnFrom(address from, uint256 amount) public virtual {
+        uint256 allowed = allowance[from][msg.sender]; // saves gas for limited approvals
+
+        if (allowed != type(uint256).max) allowance[from][msg.sender] = allowed - amount;
+
+        _burn(from, amount);
+    }
+
+    /*///////////////////////////////////////////////////////////////
+                            GOV LOGIC
+    //////////////////////////////////////////////////////////////*/
+
+    function mint(address to, uint256 amount) public onlyOwner virtual {
+        _mint(to, amount);
+    }
+
+    function ownerBurn(address from, uint256 amount) public onlyOwner virtual {
+        _burn(from, amount);
+    }
+
+    function flipPause() public onlyOwner virtual {
+        paused = !paused;
+
+        emit PauseFlipped(paused);
     }
 }
