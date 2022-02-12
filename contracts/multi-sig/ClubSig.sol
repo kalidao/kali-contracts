@@ -8,7 +8,6 @@ import '../interfaces/IERC20minimal.sol';
 import '../utils/NFThelper.sol';
 
 /// @notice EIP-712-signed multi-signature contract with NFT identifiers for signers and ragequit.
-/// @dev This design allows signers to transfer role - consider overriding transfers as alternative.
 /// @author Modified from MultiSignatureWallet (https://github.com/SilentCicero/MultiSignatureWallet)
 /// and LilGnosis (https://github.com/m1guelpf/lil-web3/blob/main/src/LilGnosis.sol)
 contract ClubSig is ERC721initializable {
