@@ -54,8 +54,8 @@ contract ClubSig is ERC721initializable {
     //////////////////////////////////////////////////////////////*/
 
     struct Signature {
-	    uint8 v;
-	    bytes32 r;
+	uint8 v;
+	bytes32 r;
         bytes32 s;
     }
 
