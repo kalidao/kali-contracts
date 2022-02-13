@@ -30,7 +30,6 @@ abstract contract ERC721initializable {
     /// -----------------------------------------------------------------------
 
     error Paused();
-    error Initialized();
     error NotApproved();
     error NotOwner();
     error InvalidRecipient();
