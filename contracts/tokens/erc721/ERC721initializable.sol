@@ -16,18 +16,18 @@ interface ERC721TokenReceiver {
 
 /// @notice Modern and gas efficient ERC-721 + ERC-20/EIP-2612-like implementation.
 abstract contract ERC721initializable {
-    /*///////////////////////////////////////////////////////////////
-                                 EVENTS
-    //////////////////////////////////////////////////////////////*/
+    /// -----------------------------------------------------------------------
+    /// Events
+    /// -----------------------------------------------------------------------
 
     event Transfer(address indexed from, address indexed to, uint256 indexed tokenId);
     event Approval(address indexed owner, address indexed spender, uint256 indexed tokenId);
     event ApprovalForAll(address indexed owner, address indexed operator, bool approved);
     event PauseFlipped(bool paused);
 
-    /*///////////////////////////////////////////////////////////////
-                                 ERRORS
-    //////////////////////////////////////////////////////////////*/
+    /// -----------------------------------------------------------------------
+    /// Errors
+    /// -----------------------------------------------------------------------
 
     error Paused();
     error Initialized();
@@ -39,18 +39,39 @@ abstract contract ERC721initializable {
     error AlreadyMinted();
     error NotMinted();
 
-    /*///////////////////////////////////////////////////////////////
-                          METADATA STORAGE/LOGIC
-    //////////////////////////////////////////////////////////////*/
-
-    string public name;
-    string public symbol;
+    /// -----------------------------------------------------------------------
+    /// Metadata Storage/Logic
+    /// -----------------------------------------------------------------------
 
     function tokenURI(uint256 tokenId) public view virtual returns (string memory);
 
-    /*///////////////////////////////////////////////////////////////
-                            ERC-721 STORAGE                        
-    //////////////////////////////////////////////////////////////*/
+    function name() public pure virtual returns (string memory) {
+        return string(abi.encodePacked(_getArgUint256(0)));
+    }
+
+    function symbol() public pure virtual returns (string memory) {
+        return string(abi.encodePacked(_getArgUint256(0x20)));
+    }
+
+    function _getArgUint256(uint256 argOffset) internal pure virtual returns (uint256 arg) {
+        uint256 offset = _getImmutableArgsOffset();
+        assembly {
+            arg := calldataload(add(offset, argOffset))
+        }
+    }
+
+    function _getImmutableArgsOffset() internal pure virtual returns (uint256 offset) {
+        assembly {
+            offset := sub(
+                calldatasize(),
+                add(shr(240, calldataload(sub(calldatasize(), 2))), 2)
+            )
+        }
+    }
+
+    /// -----------------------------------------------------------------------
+    /// ERC-721 Storage
+    /// -----------------------------------------------------------------------
     
     uint256 public totalSupply;
     
@@ -59,9 +80,9 @@ abstract contract ERC721initializable {
     mapping(uint256 => address) public getApproved;
     mapping(address => mapping(address => bool)) public isApprovedForAll;
 
-    /*///////////////////////////////////////////////////////////////
-                             EIP-2612 STORAGE
-    //////////////////////////////////////////////////////////////*/
+    /// -----------------------------------------------------------------------
+    /// EIP-2612 Storage
+    /// -----------------------------------------------------------------------
     
     bytes32 public constant PERMIT_TYPEHASH =
         keccak256('Permit(address spender,uint256 tokenId,uint256 nonce,uint256 deadline)');
@@ -73,9 +94,9 @@ abstract contract ERC721initializable {
     mapping(uint256 => uint256) public nonces;
     mapping(address => uint256) public noncesForAll;
 
-    /*///////////////////////////////////////////////////////////////
-                              PAUSE LOGIC
-    //////////////////////////////////////////////////////////////*/
+    /// -----------------------------------------------------------------------
+    /// Pause Storage/Logic
+    /// -----------------------------------------------------------------------
 
     bool public paused;
 
@@ -84,25 +105,19 @@ abstract contract ERC721initializable {
         _;
     }
     
-    /*///////////////////////////////////////////////////////////////
-                              INITIALIZER
-    //////////////////////////////////////////////////////////////*/
+    /// -----------------------------------------------------------------------
+    /// Initializer
+    /// -----------------------------------------------------------------------
     
-    function _init(
-        string calldata name_, 
-        string calldata symbol_,
-        bool paused_
-    ) internal virtual {
-        name = name_;
-        symbol = symbol_;
+    function _init(bool paused_) internal virtual {
         paused = paused_;
         INITIAL_CHAIN_ID = block.chainid;
         INITIAL_DOMAIN_SEPARATOR = _computeDomainSeparator();
     }
     
-    /*///////////////////////////////////////////////////////////////
-                              ERC-20 LOGIC
-    //////////////////////////////////////////////////////////////*/
+    /// -----------------------------------------------------------------------
+    /// ERC-20 Logic
+    /// -----------------------------------------------------------------------
     
     function transfer(address to, uint256 tokenId) public notPaused virtual returns (bool) {
         if (msg.sender != ownerOf[tokenId]) revert NotOwner();
@@ -124,9 +139,9 @@ abstract contract ERC721initializable {
         return true;
     }
 
-    /*///////////////////////////////////////////////////////////////
-                              ERC-721 LOGIC
-    //////////////////////////////////////////////////////////////*/
+    /// -----------------------------------------------------------------------
+    /// ERC-721 Logic
+    /// -----------------------------------------------------------------------
     
     function approve(address spender, uint256 tokenId) public virtual {
         address owner = ownerOf[tokenId];
@@ -197,9 +212,9 @@ abstract contract ERC721initializable {
         ) revert InvalidRecipient();
     }
 
-    /*///////////////////////////////////////////////////////////////
-                              ERC-165 LOGIC
-    //////////////////////////////////////////////////////////////*/
+    /// -----------------------------------------------------------------------
+    /// ERC-165 Logic
+    /// -----------------------------------------------------------------------
 
     function supportsInterface(bytes4 interfaceId) public pure virtual returns (bool) {
         return
@@ -208,9 +223,9 @@ abstract contract ERC721initializable {
             interfaceId == 0x5b5e139f; // ERC-165 Interface ID for ERC721Metadata
     }
 
-    /*///////////////////////////////////////////////////////////////
-                              EIP-2612 LOGIC
-    //////////////////////////////////////////////////////////////*/
+    /// -----------------------------------------------------------------------
+    /// EIP-2612 Logic
+    /// -----------------------------------------------------------------------
     
     function permit(
         address spender,
@@ -285,7 +300,7 @@ abstract contract ERC721initializable {
             keccak256(
                 abi.encode(
                     keccak256('EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)'),
-                    keccak256(bytes(name)),
+                    keccak256(bytes(name())),
                     keccak256('1'),
                     block.chainid,
                     address(this)
@@ -293,9 +308,9 @@ abstract contract ERC721initializable {
             );
     }
 
-    /*///////////////////////////////////////////////////////////////
-                       INTERNAL MINT/BURN LOGIC
-    //////////////////////////////////////////////////////////////*/
+    /// -----------------------------------------------------------------------
+    /// Internal Mint/Burn Logic
+    /// -----------------------------------------------------------------------
     
     function _mint(address to, uint256 tokenId) internal virtual { 
         if (to == address(0)) revert InvalidRecipient();
@@ -329,9 +344,9 @@ abstract contract ERC721initializable {
         emit Transfer(owner, address(0), tokenId); 
     }
 
-    /*///////////////////////////////////////////////////////////////
-                       INTERNAL SAFE MINT LOGIC
-    //////////////////////////////////////////////////////////////*/
+    /// -----------------------------------------------------------------------
+    /// Internal Safe Mint Logic
+    /// -----------------------------------------------------------------------
 
     function _safeMint(address to, uint256 tokenId) internal virtual {
         _mint(to, tokenId);
@@ -355,9 +370,9 @@ abstract contract ERC721initializable {
         ) revert InvalidRecipient();
     }
 
-    /*///////////////////////////////////////////////////////////////
-                       INTERNAL PAUSING LOGIC
-    //////////////////////////////////////////////////////////////*/
+    /// -----------------------------------------------------------------------
+    /// Internal Pause Logic
+    /// -----------------------------------------------------------------------
 
     function _flipPause() internal virtual {
         paused = !paused;
