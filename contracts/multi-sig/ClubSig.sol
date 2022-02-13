@@ -4,10 +4,19 @@ pragma solidity >=0.8.4;
 
 import '../tokens/ERC721/ERC721initializable.sol';
 import '../libraries/Base64.sol';
-import '../interfaces/IERC20minimal.sol';
 import '../utils/NFThelper.sol';
 
-/// @notice EIP-712-signed multi-signature contract with NFT identifiers for signers and ragequit.
+/// @notice Minimal ERC-20 interface.
+interface IERC20minimal { 
+    function balanceOf(address account) external view returns (uint256);
+}
+
+/// @notice ERC-1271 interface.
+interface IERC1271 {
+    function isValidSignature(bytes32 hash, bytes memory signature) external view returns (bytes4);
+}
+
+/// @notice EIP-712 multi-sig with dynamic NFTs for signers and ragequit exit rights.
 /// @author Modified from MultiSignatureWallet (https://github.com/SilentCicero/MultiSignatureWallet)
 /// and LilGnosis (https://github.com/m1guelpf/lil-web3/blob/main/src/LilGnosis.sol)
 contract ClubSig is ERC721initializable {
@@ -28,24 +37,28 @@ contract ClubSig is ERC721initializable {
     error ExecuteFailed();
     error Forbidden();
     error NotSigner();
+    error AssetOrder();
     error TransferFailed();
 
     /*///////////////////////////////////////////////////////////////
                              CLUB STORAGE
     //////////////////////////////////////////////////////////////*/
-
+    /// @dev initialized at `1` for cheaper first tx
     uint256 public nonce = 1;
+    /// @dev signature (NFT) threshold to execute tx
     uint256 public quorum;
+    /// @dev total ragequittable units minted
     uint256 public totalLoot;
-
+    /// @dev ragequittable units per account
     mapping(address => uint256) public loot;
+    /// @dev administrative account tracking
     mapping(address => bool) public governor;
 
     struct Call {
         address target; 
         uint256 value;
         bytes payload;
-        bool deleg;
+        bool deleg; // whether delegate call
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -53,8 +66,8 @@ contract ClubSig is ERC721initializable {
     //////////////////////////////////////////////////////////////*/
 
     struct Signature {
-	uint8 v;
-	bytes32 r;
+	    uint8 v;
+	    bytes32 r;
         bytes32 s;
     }
 
@@ -69,7 +82,7 @@ contract ClubSig is ERC721initializable {
         string calldata name_,
         string calldata symbol_,
         bool paused_
-    ) public virtual {
+    ) public payable virtual {
         ERC721initializable._init(name_, symbol_, paused_);
 
         uint256 length = signers.length;
@@ -94,7 +107,7 @@ contract ClubSig is ERC721initializable {
     //////////////////////////////////////////////////////////////*/
 
     function tokenURI(uint256 tokenId) public view override virtual returns (string memory) {
-        return string(_constructTokenURI(tokenId));
+        return _constructTokenURI(tokenId);
     }
 
     function _constructTokenURI(uint256 tokenId) internal view returns (string memory) {
@@ -160,38 +173,30 @@ contract ClubSig is ERC721initializable {
                             OPERATIONS
     //////////////////////////////////////////////////////////////*/
 
-    function execute(
-        Call calldata call,
-        Signature[] calldata sigs
-    ) public virtual returns (bool success, bytes memory result) {
+    function execute(Call calldata call, Signature[] calldata sigs) public payable virtual returns (bool success, bytes memory result) {
         // cannot realistically overflow on human timescales
         unchecked {
-            bytes32 digest =
-                keccak256(
-                    abi.encodePacked(
-                        '\x19\x01',
-                        DOMAIN_SEPARATOR(),
-                        keccak256(
-                            abi.encode(
-                                keccak256('Exec(address target,uint256 value,bytes payload,bool deleg,uint256 nonce)'),
-                                call.target,
-                                call.value,
-                                call.payload,
-                                call.deleg,
-                                nonce++
-                            )
-                        )
-                    )
+            bytes32 digest = keccak256(abi.encodePacked('\x19\x01', DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(keccak256(
+                    'Exec(address target,uint256 value,bytes payload,bool deleg,uint256 nonce)'),
+                    call.target, call.value, call.payload, call.deleg, nonce++)))
                 );
 
-                address previous;
+            address prevAddr;
 
-                for (uint256 i = 0; i < quorum; i++) {
-                    address sigAddress = ecrecover(digest, sigs[i].v, sigs[i].r, sigs[i].s);
-                    // check for key balance and duplicates
-                    if (balanceOf[sigAddress] == 0 || previous >= sigAddress) revert InvalidSigner();
-                    previous = sigAddress;
-                }
+            for (uint256 i = 0; i < quorum; i++) {
+                address sigAddr = ecrecover(digest, sigs[i].v, sigs[i].r, sigs[i].s);
+
+                // check for conformant contract signature
+                if (sigAddr.code.length != 0 && IERC1271(sigAddr).isValidSignature(
+                    digest, abi.encodePacked(sigs[i].r, sigs[i].s, sigs[i].v)) != 0x1626ba7e) 
+                    revert InvalidSigner();
+                    
+                // check for NFT balance and duplicates
+                if (balanceOf[sigAddr] == 0 || prevAddr >= sigAddr) revert InvalidSigner();
+
+                prevAddr = sigAddr;
+            }
         }
        
         if (!call.deleg) {
@@ -207,23 +212,23 @@ contract ClubSig is ERC721initializable {
 
     function govern(
         address[] calldata signers,
-        uint256[] calldata ids, 
+        uint256[] calldata tokenIds, 
         uint256[] calldata loots,
         bool[] calldata mints,
         uint256 quorum_
-    ) public virtual {
+    ) public payable virtual {
         if (msg.sender != address(this) || !governor[msg.sender]) revert Forbidden();
 
         uint256 length = signers.length;
-        if (length != ids.length || length != mints.length) revert NoArrayParity();
+        if (length != tokenIds.length || length != mints.length) revert NoArrayParity();
         // cannot realistically overflow on human timescales
         unchecked {
             for (uint256 i = 0; i < length; i++) {
                 if (mints[i]) {
-                    _safeMint(signers[i], ids[i]);
+                    _safeMint(signers[i], tokenIds[i]);
                     totalSupply++;
                 } else {
-                    _burn(ids[i]);
+                    _burn(tokenIds[i]);
                     totalSupply--;
                 }
                 loot[signers[i]] += loots[i];
@@ -235,19 +240,19 @@ contract ClubSig is ERC721initializable {
         emit Govern(signers, quorum_);
     }
 
-    function flipPause() public virtual {
+    function flipPause() public payable virtual {
         if (msg.sender != address(this) || !governor[msg.sender]) revert Forbidden();
 
         ERC721initializable._flipPause();
     }
 
-    function flipGovernor(address account) public virtual {
+    function flipGovernor(address account) public payable virtual {
         if (msg.sender != address(this) || !governor[msg.sender]) revert Forbidden();
 
         governor[account] = !governor[account];
     }
 
-    function governorExecute(Call calldata call) public returns (bool success, bytes memory result) {
+    function governorExecute(Call calldata call) public payable returns (bool success, bytes memory result) {
         if (!governor[msg.sender]) revert Forbidden();
 
         if (!call.deleg) {
@@ -265,13 +270,13 @@ contract ClubSig is ERC721initializable {
 
     receive() external payable {}
 
-    function ragequit(address[] calldata assets, uint256 lootToBurn) public virtual {
+    function ragequit(address[] calldata assets, uint256 lootToBurn) public payable virtual {
         uint256 length = assets.length;
         // cannot realistically overflow on human timescales
         unchecked {
             for (uint256 i; i < length; i++) {
                 if (i != 0) {
-                    require(assets[i] > assets[i - 1], '!order');
+                    if (assets[i] <= assets[i - 1]) revert AssetOrder();
                 }
             }
         }
@@ -279,7 +284,10 @@ contract ClubSig is ERC721initializable {
         uint256 lootTotal = totalLoot;
 
         loot[msg.sender] -= lootToBurn;
-        totalLoot -= lootToBurn;
+        // cannot realistically overflow on human timescales
+        unchecked {
+            totalLoot -= lootToBurn;
+        }
 
         for (uint256 i; i < length;) {
             // calculate fair share of given assets for redemption
