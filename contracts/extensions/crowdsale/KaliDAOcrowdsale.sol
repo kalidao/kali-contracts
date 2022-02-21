@@ -5,6 +5,7 @@ pragma solidity >=0.8.4;
 import '../../libraries/SafeTransferLib.sol';
 import '../../interfaces/IKaliAccessManager.sol';
 import '../../interfaces/IKaliShareManager.sol';
+import '../../interfaces/IERC20Permit.sol';
 import '../../utils/Multicall.sol';
 import '../../utils/ReentrancyGuard.sol';
 
@@ -34,6 +35,8 @@ contract KaliDAOcrowdsale is Multicall, ReentrancyGuard {
     
     IKaliAccessManager private immutable accessManager;
 
+    address private immutable wETH;
+
     mapping(address => Crowdsale) public crowdsales;
 
     struct Crowdsale {
@@ -46,8 +49,10 @@ contract KaliDAOcrowdsale is Multicall, ReentrancyGuard {
         string details;
     }
 
-    constructor(IKaliAccessManager accessManager_) {
+    constructor(IKaliAccessManager accessManager_, address wETH_) {
         accessManager = accessManager_;
+
+        wETH = wETH_;
     }
 
     function setExtension(bytes calldata extensionData) public nonReentrant virtual {
@@ -77,6 +82,25 @@ contract KaliDAOcrowdsale is Multicall, ReentrancyGuard {
         );
     }
 
+    function setPermit(
+        IERC20Permit token, 
+        uint256 value,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r, 
+        bytes32 s
+    ) public virtual {
+        token.permit(
+            msg.sender,
+            address(this),
+            value,
+            deadline,
+            v,
+            r,
+            s
+        );
+    }
+
     function callExtension(address dao, uint256 amount) public payable nonReentrant virtual returns (uint256 amountOut) {
         Crowdsale storage sale = crowdsales[dao];
 
@@ -92,6 +116,20 @@ contract KaliDAOcrowdsale is Multicall, ReentrancyGuard {
 
             // send ETH to DAO
             dao._safeTransferETH(msg.value);
+
+            sale.amountPurchased += uint96(amountOut);
+
+            IKaliShareManager(dao).mintShares(msg.sender, amountOut);
+        } else if (sale.purchaseToken == address(0xDead)) {
+            amountOut = msg.value * sale.purchaseMultiplier;
+
+            if (sale.amountPurchased + amountOut > sale.purchaseLimit) revert PurchaseLimit();
+
+            // send ETH to wETH
+            wETH._safeTransferETH(msg.value);
+
+            // send wETH to DAO
+            wETH._safeTransfer(dao, msg.value);
 
             sale.amountPurchased += uint96(amountOut);
 
