@@ -2,7 +2,6 @@
 
 pragma solidity >=0.8.4;
 
-import '../../sub/KaliSubDAOtoken.sol';
 import '../../libraries/SafeTransferLib.sol';
 import '../../interfaces/IERC20minimal.sol';
 import '../../utils/ReentrancyGuard.sol';
@@ -11,159 +10,100 @@ import '../../utils/ReentrancyGuard.sol';
 contract KaliDAOredemption is ReentrancyGuard {
     using SafeTransferLib for address;
 
-    /*///////////////////////////////////////////////////////////////
-                            EVENTS
-    //////////////////////////////////////////////////////////////*/
+    event ExtensionSet(address indexed dao, address[] tokens, uint256 indexed redemptionStart);
 
-    event ExtensionSet(address indexed dao, address lootToken, uint32 redemptionStarts, bool votesRedeemable);
+    event ExtensionCalled(address indexed dao, address indexed member, uint256 indexed amountBurned);
 
-    event ExtensionCalled(address indexed dao, address indexed member, uint256 votesToRedeem, uint256 lootToRedeem);
+    event TokensAdded(address indexed dao, address[] tokens);
 
-    event LootDeployed(address indexed dao, string name, string symbol, bool paused, address[] voters, uint256[] shares);
+    event TokensRemoved(address indexed dao, uint256[] tokenIndex);
 
-    /*///////////////////////////////////////////////////////////////
-                            ERRORS
-    //////////////////////////////////////////////////////////////*/
+    error NullTokens();
 
     error NotStarted();
 
-    error NullDeploy();
+    mapping(address => address[]) public redeemables;
 
-    /*///////////////////////////////////////////////////////////////
-                            STORAGE
-    //////////////////////////////////////////////////////////////*/
+    mapping(address => uint256) public redemptionStarts;
 
-    address public immutable lootMaster;
-
-    mapping(address => Redemption) public redemptions;
-
-    struct Redemption {
-        address lootToken;
-        uint32 redemptionStarts;
-        bool votesRedeemable;
+    function getRedeemables(address dao) public view virtual returns (address[] memory tokens) {
+        tokens = redeemables[dao];
     }
-
-    /*///////////////////////////////////////////////////////////////
-                            CONSTRUCTOR
-    //////////////////////////////////////////////////////////////*/
-
-    constructor(address lootMaster_) {
-        lootMaster = lootMaster_;
-    }
-
-    /*///////////////////////////////////////////////////////////////
-                            REDEMPTION LOGIC
-    //////////////////////////////////////////////////////////////*/
 
     function setExtension(bytes calldata extensionData) public nonReentrant virtual {
-        (address lootToken, uint32 redemptionStarts, bool votesRedeemable) 
-            = abi.decode(extensionData, (address, uint32, bool));
+        (address[] memory tokens, uint256 redemptionStart) = abi.decode(extensionData, (address[], uint256));
 
-        redemptions[msg.sender] = Redemption({
-            lootToken: lootToken,
-            redemptionStarts: redemptionStarts,
-            votesRedeemable: votesRedeemable
-        });
+        if (tokens.length == 0) revert NullTokens();
 
-        emit ExtensionSet(msg.sender, lootToken, redemptionStarts, votesRedeemable);
+        // if redeemables are already set, this call will be interpreted as reset
+        if (redeemables[msg.sender].length != 0) delete redeemables[msg.sender];
+        
+        // cannot realistically overflow on human timescales
+        unchecked {
+            for (uint256 i; i < tokens.length; i++) {
+                redeemables[msg.sender].push(tokens[i]);
+            }
+        }
+
+        redemptionStarts[msg.sender] = redemptionStart;
+
+        emit ExtensionSet(msg.sender, tokens, redemptionStart);
     }
 
     function callExtension(
-        address dao, 
-        address[] calldata tokensToClaim, 
-        uint256 votesToRedeem,
-        uint256 lootToRedeem
-    ) public nonReentrant virtual {
-        Redemption storage redmn = redemptions[dao];
+        address account, 
+        uint256 amount, 
+        bytes calldata
+    ) public nonReentrant virtual returns (bool mint, uint256 amountOut) {
+        if (block.timestamp < redemptionStarts[msg.sender]) revert NotStarted();
 
-        if (block.timestamp < redmn.redemptionStarts) revert NotStarted();
-
-        uint256 totalSupply;
-
-        if (redmn.votesRedeemable) {
-            totalSupply += IERC20minimal(dao).totalSupply();
-
-            if (votesToRedeem != 0) IERC20minimal(dao).burnFrom(msg.sender, votesToRedeem);
-        }
-
-        if (redmn.lootToken != address(0)) {
-            totalSupply += IERC20minimal(redmn.lootToken).totalSupply();
-
-            if (lootToRedeem != 0) IERC20minimal(redmn.lootToken).burnFrom(msg.sender, lootToRedeem);
-        }
- 
-        for (uint256 i; i < tokensToClaim.length;) {
+        for (uint256 i; i < redeemables[msg.sender].length;) {
             // calculate fair share of given token for redemption
-            uint256 amountToRedeem = ((votesToRedeem + lootToRedeem) * 
-                IERC20minimal(tokensToClaim[i]).balanceOf(dao)) / 
-                totalSupply;
+            uint256 amountToRedeem = amount * 
+                IERC20minimal(redeemables[msg.sender][i]).balanceOf(msg.sender) / 
+                IERC20minimal(msg.sender).totalSupply();
             
             // `transferFrom` DAO to redeemer
             if (amountToRedeem != 0) {
-                tokensToClaim[i]._safeTransferFrom(
-                    dao, 
+                address(redeemables[msg.sender][i])._safeTransferFrom(
                     msg.sender, 
+                    account, 
                     amountToRedeem
                 );
             }
 
+            // cannot realistically overflow on human timescales
             unchecked {
                 i++;
             }
         }
 
-        emit ExtensionCalled(dao, msg.sender, votesToRedeem, lootToRedeem);
+        // placeholder values to conform to interface and disclaim mint
+        (mint, amountOut) = (false, amount);
+
+        emit ExtensionCalled(msg.sender, account, amount);
     }
 
-    /*///////////////////////////////////////////////////////////////
-                            DEPLOYER LOGIC
-    //////////////////////////////////////////////////////////////*/
-
-    function deployKaliDAOloot(
-        string memory name_,
-        string memory symbol_,
-        bool paused_,
-        address[] memory voters_,
-        uint256[] memory shares_
-    ) public virtual returns (KaliSubDAOtoken kaliLoot) {
-        kaliLoot = KaliSubDAOtoken(_cloneAsMinimalProxy(lootMaster, name_));
-
-        kaliLoot.init(
-            name_,
-            symbol_,
-            paused_,
-            voters_,
-            shares_,
-            msg.sender
-        );
-
-        redemptions[msg.sender].lootToken = address(kaliLoot);
-
-        emit LootDeployed(msg.sender, name_, symbol_, paused_, voters_, shares_);
-    }
-
-    /// @dev modified from Aelin (https://github.com/AelinXYZ/aelin/blob/main/contracts/MinimalProxyFactory.sol)
-    function _cloneAsMinimalProxy(address base, string memory name_) internal virtual returns (address clone) {
-        bytes memory createData = abi.encodePacked(
-            // constructor
-            bytes10(0x3d602d80600a3d3981f3),
-            // proxy code
-            bytes10(0x363d3d373d3d3d363d73),
-            base,
-            bytes15(0x5af43d82803e903d91602b57fd5bf3)
-        );
-
-        bytes32 salt = keccak256(bytes(name_));
-
-        assembly {
-            clone := create2(
-                0, // no value
-                add(createData, 0x20), // data
-                mload(createData),
-                salt
-            )
+    function addTokens(address[] calldata tokens) public nonReentrant virtual {
+        // cannot realistically overflow on human timescales
+        unchecked {
+            for (uint256 i; i < tokens.length; i++) {
+                redeemables[msg.sender].push(tokens[i]);
+            }
         }
-        // if CREATE2 fails for some reason, address(0) is returned
-        if (clone == address(0)) revert NullDeploy();
+
+        emit TokensAdded(msg.sender, tokens);
+    }
+
+    function removeTokens(uint256[] calldata tokenIndex) public nonReentrant virtual {
+        for (uint256 i; i < tokenIndex.length; i++) {
+            // move last token to replace indexed spot and pop array to remove last token
+            redeemables[msg.sender][tokenIndex[i]] = 
+                redeemables[msg.sender][redeemables[msg.sender].length - 1];
+
+            redeemables[msg.sender].pop();
+        }
+
+        emit TokensRemoved(msg.sender, tokenIndex);
     }
 }
