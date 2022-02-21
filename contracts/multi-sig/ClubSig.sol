@@ -16,21 +16,24 @@ interface IERC1271 {
     function isValidSignature(bytes32 hash, bytes memory signature) external view returns (bytes4);
 }
 
-/// @notice EIP-712 multi-sig with dynamic NFTs for signers and ragequit exit rights.
+/// @notice EIP-712-signed multi-signature contract with NFT identifiers for signers and ragequit.
 /// @author Modified from MultiSignatureWallet (https://github.com/SilentCicero/MultiSignatureWallet)
+/// License-Identifier: MIT
 /// and LilGnosis (https://github.com/m1guelpf/lil-web3/blob/main/src/LilGnosis.sol)
-contract ClubSig is ERC721initializable {
-    /*///////////////////////////////////////////////////////////////
-                                 EVENTS
-    //////////////////////////////////////////////////////////////*/
+/// License-Identifier: AGPL-3.0-only
+contract ClubSig is ERC721initializable, Multicall {
+    /// -----------------------------------------------------------------------
+    /// Events
+    /// -----------------------------------------------------------------------
 
     event Execute(address target, uint256 value, bytes payload);
     event Govern(address[] signers, uint256 quorum);
 
-    /*///////////////////////////////////////////////////////////////
-                                 ERRORS
-    //////////////////////////////////////////////////////////////*/
+    /// -----------------------------------------------------------------------
+    /// Errors
+    /// -----------------------------------------------------------------------
 
+    error Initialized();
     error NoArrayParity();
     error SigBounds();
     error InvalidSigner();
@@ -40,11 +43,12 @@ contract ClubSig is ERC721initializable {
     error AssetOrder();
     error TransferFailed();
 
-    /*///////////////////////////////////////////////////////////////
-                             CLUB STORAGE
-    //////////////////////////////////////////////////////////////*/
+    /// -----------------------------------------------------------------------
+    /// Club Storage
+    /// -----------------------------------------------------------------------
+
     /// @dev initialized at `1` for cheaper first tx
-    uint256 public nonce = 1;
+    uint256 public nonce;
     /// @dev signature (NFT) threshold to execute tx
     uint256 public quorum;
     /// @dev total ragequittable units minted
@@ -61,9 +65,9 @@ contract ClubSig is ERC721initializable {
         bool deleg; // whether delegate call
     }
 
-    /*///////////////////////////////////////////////////////////////
-                             EIP-712 STORAGE
-    //////////////////////////////////////////////////////////////*/
+    /// -----------------------------------------------------------------------
+    /// EIP-712 Storage
+    /// -----------------------------------------------------------------------
 
     struct Signature {
 	uint8 v;
@@ -71,40 +75,43 @@ contract ClubSig is ERC721initializable {
         bytes32 s;
     }
 
-    /*///////////////////////////////////////////////////////////////
-                              INITIALIZER
-    //////////////////////////////////////////////////////////////*/
+    /// -----------------------------------------------------------------------
+    /// Initializer
+    /// -----------------------------------------------------------------------
 
     function init(
-        address[] calldata signers, 
-        uint256[] calldata loots, 
+        address[] calldata signers_, 
+        uint256[] calldata loots_, 
         uint256 quorum_,
-        string calldata name_,
-        string calldata symbol_,
         bool paused_
     ) public payable virtual {
-        ERC721initializable._init(name_, symbol_, paused_);
+        if (nonce == 0) revert Initialized();
 
-        uint256 length = signers.length;
-        if (length != loots.length) revert NoArrayParity();
+        ERC721initializable._init(paused_);
+
+        uint256 length = signers_.length;
+
+        if (length != loots_.length) revert NoArrayParity();
         if (quorum_ > length) revert SigBounds();
+
         // cannot realistically overflow on human timescales
         unchecked {
             for (uint256 i = 0; i < length; i++) {
-                _safeMint(signers[i], uint256(keccak256(abi.encodePacked(signers[i]))));
+                // hash `tokenId` to signer address
+                _safeMint(signers_[i], uint256(keccak256(abi.encodePacked(signers_[i]))));
                 totalSupply++;
-                loot[signers[i]] = loots[i];
-                totalLoot += loots[i];
+                loot[signers_[i]] = loots_[i];
+                totalLoot += loots_[i];
             }
         }
+
         quorum = quorum_;
-        INITIAL_CHAIN_ID = block.chainid;
-        INITIAL_DOMAIN_SEPARATOR = _computeDomainSeparator();
+        nonce = 1;
     }
 
-    /*///////////////////////////////////////////////////////////////
-                          METADATA LOGIC
-    //////////////////////////////////////////////////////////////*/
+    /// -----------------------------------------------------------------------
+    /// Metadata Logic
+    /// -----------------------------------------------------------------------
 
     function tokenURI(uint256 tokenId) public view override virtual returns (string memory) {
         return _constructTokenURI(tokenId);
@@ -116,7 +123,7 @@ contract ClubSig is ERC721initializable {
         string memory metaSVG = string(
             abi.encodePacked(
                 '<text dominant-baseline="middle" text-anchor="middle" fill="white" x="50%" y="90px">',
-                toString(loot[owner]),
+                _toString(loot[owner]),
                 " Loot",
                 "</text>"
             )
@@ -126,7 +133,7 @@ contract ClubSig is ERC721initializable {
             metaSVG,
             "</svg>"
         );
-        bytes memory _image = abi.encodePacked(
+        bytes memory image = abi.encodePacked(
             "data:image/svg+xml;base64,",
             Base64.encode(bytes(svg))
         );
@@ -137,10 +144,10 @@ contract ClubSig is ERC721initializable {
                     bytes(
                         abi.encodePacked(
                             '{"name":"',
-                            name,
+                            name(),
                             '", "image":"',
-                            _image,
-                            '", "description": "Illustrious Club member with a dynamically generated NFT showing loot weight."}'
+                            image,
+                            '", "description": "The holder of this NFT is a club key signer with impeccable taste."}'
                         )
                     )
                 )
@@ -148,9 +155,7 @@ contract ClubSig is ERC721initializable {
         );
     }
 
-    function toString(uint256 value) internal pure returns (string memory) {
-        // @dev inspired by OraclizeAPI's implementation - MIT license -
-        // https://github.com/oraclize/ethereum-api/blob/b42146b063c7d6ee1358846c198246239e9360e8/oraclizeAPI_0.4.25.sol
+    function _toString(uint256 value) internal pure returns (string memory) {
         if (value == 0) {
             return '0';
         }
@@ -169,9 +174,9 @@ contract ClubSig is ERC721initializable {
         return string(buffer);
     }
 
-    /*///////////////////////////////////////////////////////////////
-                            OPERATIONS
-    //////////////////////////////////////////////////////////////*/
+    /// -----------------------------------------------------------------------
+    /// Operations
+    /// -----------------------------------------------------------------------
 
     function execute(Call calldata call, Signature[] calldata sigs) public payable virtual returns (bool success, bytes memory result) {
         // cannot realistically overflow on human timescales
@@ -189,9 +194,10 @@ contract ClubSig is ERC721initializable {
 
                 // check for conformant contract signature
                 if (sigAddr.code.length != 0 && IERC1271(sigAddr).isValidSignature(
-                    digest, abi.encodePacked(sigs[i].r, sigs[i].s, sigs[i].v)) != 0x1626ba7e) 
+                        digest, abi.encodePacked(sigs[i].r, sigs[i].s, sigs[i].v)) != 0x1626ba7e
+                    ) 
                     revert InvalidSigner();
-                    
+
                 // check for NFT balance and duplicates
                 if (balanceOf[sigAddr] == 0 || prevAddr >= sigAddr) revert InvalidSigner();
 
@@ -220,7 +226,9 @@ contract ClubSig is ERC721initializable {
         if (msg.sender != address(this) || !governor[msg.sender]) revert Forbidden();
 
         uint256 length = signers.length;
+
         if (length != tokenIds.length || length != mints.length) revert NoArrayParity();
+
         // cannot realistically overflow on human timescales
         unchecked {
             for (uint256 i = 0; i < length; i++) {
@@ -231,25 +239,27 @@ contract ClubSig is ERC721initializable {
                     _burn(tokenIds[i]);
                     totalSupply--;
                 }
-                loot[signers[i]] += loots[i];
+                if (loots[i] != 0) loot[signers[i]] += loots[i];
             }
         }
+
         if (quorum_ > totalSupply) revert SigBounds();
+
         quorum = quorum_;
 
         emit Govern(signers, quorum_);
+    }
+    
+    function flipGovernor(address account) public payable virtual {
+        if (msg.sender != address(this) || !governor[msg.sender]) revert Forbidden();
+
+        governor[account] = !governor[account];
     }
 
     function flipPause() public payable virtual {
         if (msg.sender != address(this) || !governor[msg.sender]) revert Forbidden();
 
         ERC721initializable._flipPause();
-    }
-
-    function flipGovernor(address account) public payable virtual {
-        if (msg.sender != address(this) || !governor[msg.sender]) revert Forbidden();
-
-        governor[account] = !governor[account];
     }
 
     function governorExecute(Call calldata call) public payable returns (bool success, bytes memory result) {
@@ -264,14 +274,15 @@ contract ClubSig is ERC721initializable {
         }
     }
 
-    /*///////////////////////////////////////////////////////////////
-                            ASSET MGMT
-    //////////////////////////////////////////////////////////////*/
+    /// -----------------------------------------------------------------------
+    /// Asset Management
+    /// -----------------------------------------------------------------------
 
     receive() external payable {}
 
     function ragequit(address[] calldata assets, uint256 lootToBurn) public payable virtual {
         uint256 length = assets.length;
+
         // cannot realistically overflow on human timescales
         unchecked {
             for (uint256 i; i < length; i++) {
@@ -282,8 +293,8 @@ contract ClubSig is ERC721initializable {
         }
 
         uint256 lootTotal = totalLoot;
-
         loot[msg.sender] -= lootToBurn;
+
         // cannot realistically overflow on human timescales
         unchecked {
             totalLoot -= lootToBurn;
@@ -350,5 +361,68 @@ contract ClubSig is ERC721initializable {
                 success := 0
             }
         }
+    }
+}
+
+import '../libraries/ClonesWithImmutableArgs.sol';
+
+/// @notice ClubSig Factory.
+contract ClubSigFactory is Multicall {
+    /// -----------------------------------------------------------------------
+    /// Library usage
+    /// -----------------------------------------------------------------------
+    
+    using ClonesWithImmutableArgs for address;
+
+    /// -----------------------------------------------------------------------
+    /// Events
+    /// -----------------------------------------------------------------------
+
+    event SigDeployed(ClubSig indexed clubSig, address[] signers, uint256[] loots, uint256 quorum, bytes32 name, bytes32 symbol, bool paused);
+
+    /// -----------------------------------------------------------------------
+    /// Errors
+    /// -----------------------------------------------------------------------
+
+    error NullDeploy();
+
+    /// -----------------------------------------------------------------------
+    /// Immutable parameters
+    /// -----------------------------------------------------------------------
+
+    ClubSig internal immutable clubMaster;
+
+    /// -----------------------------------------------------------------------
+    /// Constructor
+    /// -----------------------------------------------------------------------
+
+    constructor(ClubSig clubMaster_) {
+        clubMaster = clubMaster_;
+    }
+
+    /// -----------------------------------------------------------------------
+    /// Deployment
+    /// -----------------------------------------------------------------------
+    
+    function deployClubSig(
+        address[] calldata signers_, 
+        uint256[] calldata loots_, 
+        uint256 quorum_,
+        bytes32 name_,
+        bytes32 symbol_,
+        bool paused_
+    ) public payable virtual returns (ClubSig clubSig) {
+        bytes memory data = abi.encodePacked(name_, symbol_);
+
+        clubSig = ClubSig(address(clubMaster).clone(data));
+
+        clubSig.init(
+            signers_, 
+            loots_, 
+            quorum_,
+            paused_
+        );
+
+        emit SigDeployed(clubSig, signers_, loots_, quorum_, name_, symbol_, paused_);
     }
 }
