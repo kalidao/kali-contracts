@@ -4,6 +4,7 @@ pragma solidity >=0.8.4;
 
 import '../tokens/erc721/ERC721initializable.sol';
 import '../libraries/Base64.sol';
+import '../utils/Multicall.sol';
 import '../utils/NFThelper.sol';
 
 /// @notice Minimal ERC-20 interface.
