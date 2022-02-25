@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 
 pragma solidity >=0.8.4;
 
@@ -130,7 +130,7 @@ abstract contract KaliDAOtoken {
                             ERC-20 LOGIC
     //////////////////////////////////////////////////////////////*/
 
-    function approve(address spender, uint256 amount) public virtual returns (bool) {
+    function approve(address spender, uint256 amount) public payable virtual returns (bool) {
         allowance[msg.sender][spender] = amount;
 
         emit Approval(msg.sender, spender, amount);
@@ -138,7 +138,7 @@ abstract contract KaliDAOtoken {
         return true;
     }
 
-    function transfer(address to, uint256 amount) public notPaused virtual returns (bool) {
+    function transfer(address to, uint256 amount) public payable notPaused virtual returns (bool) {
         balanceOf[msg.sender] -= amount;
 
         // cannot overflow because the sum of all user
@@ -158,7 +158,7 @@ abstract contract KaliDAOtoken {
         address from,
         address to,
         uint256 amount
-    ) public notPaused virtual returns (bool) {
+    ) public payable notPaused virtual returns (bool) {
         if (allowance[from][msg.sender] != type(uint256).max) 
             allowance[from][msg.sender] -= amount;
 
@@ -189,7 +189,7 @@ abstract contract KaliDAOtoken {
         uint8 v,
         bytes32 r,
         bytes32 s
-    ) public virtual {
+    ) public payable virtual {
         if (block.timestamp > deadline) revert SignatureExpired();
 
         // cannot realistically overflow on human timescales
@@ -254,7 +254,7 @@ abstract contract KaliDAOtoken {
         }
     }
 
-    function delegate(address delegatee) public virtual {
+    function delegate(address delegatee) public payable virtual {
         _delegate(msg.sender, delegatee);
     }
 
@@ -265,7 +265,7 @@ abstract contract KaliDAOtoken {
         uint8 v, 
         bytes32 r, 
         bytes32 s
-    ) public virtual {
+    ) public payable virtual {
         if (block.timestamp > deadline) revert SignatureExpired();
 
         bytes32 structHash = keccak256(abi.encode(DELEGATION_TYPEHASH, delegatee, nonce, deadline));
@@ -413,11 +413,11 @@ abstract contract KaliDAOtoken {
         emit Transfer(from, address(0), amount);
     }
     
-    function burn(uint256 amount) public virtual {
+    function burn(uint256 amount) public payable virtual {
         _burn(msg.sender, amount);
     }
 
-    function burnFrom(address from, uint256 amount) public virtual {
+    function burnFrom(address from, uint256 amount) public payable virtual {
         if (allowance[from][msg.sender] != type(uint256).max) 
             allowance[from][msg.sender] -= amount;
 
