@@ -603,27 +603,6 @@ describe("KaliDAO", function () {
     )
     await kali.vote(1, true)
   })
-  it("Should forbid a non-member from voting on proposal", async function () {
-    await kali.init(
-      "KALI",
-      "KALI",
-      "DOCS",
-      true,
-      [],
-      [],
-      [proposer.address],
-      [getBigNumber(1)],
-      [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    )
-    await kali.propose(
-      0,
-      "TEST",
-      [proposer.address],
-      [getBigNumber(1000)],
-      [0x00]
-    )
-    expect(await kali.connect(alice).vote(1, true).should.be.reverted)
-  })
   it("Should forbid a member from voting again on proposal", async function () {
     await kali.init(
       "KALI",
@@ -816,10 +795,19 @@ describe("KaliDAO", function () {
     expect(await kali.balanceOf(proposer.address)).to.equal(0)
   })
   it("Should process contract call proposal - Single", async function () {
-    let FixedERC20 = await ethers.getContractFactory("FixedERC20")
-    let fixedERC20 = await FixedERC20.deploy("kali", "kali", 18, kali.address, getBigNumber(100))
-    await fixedERC20.deployed()
-    let payload = fixedERC20.interface.encodeFunctionData("transfer", [
+    let KaliERC20 = await ethers.getContractFactory("KaliERC20")
+    let kaliERC20 = await KaliERC20.deploy()
+    await kaliERC20.deployed()
+    await kaliERC20.init(
+      "KALI",
+      "KALI",
+      "DOCS",
+      [kali.address],
+      [getBigNumber(100)],
+      false,
+      kali.address
+    )
+    let payload = kaliERC20.interface.encodeFunctionData("transfer", [
       alice.address,
       getBigNumber(15)
     ])
@@ -834,12 +822,12 @@ describe("KaliDAO", function () {
       [getBigNumber(1)],
       [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     )
-    await kali.propose(2, "TEST", [fixedERC20.address], [0], [payload])
+    await kali.propose(2, "TEST", [kaliERC20.address], [0], [payload])
     await kali.vote(1, true)
     await advanceTime(35)
     await kali.processProposal(1)
-    expect(await fixedERC20.totalSupply()).to.equal(getBigNumber(100))
-    expect(await fixedERC20.balanceOf(alice.address)).to.equal(getBigNumber(15))
+    expect(await kaliERC20.totalSupply()).to.equal(getBigNumber(100))
+    expect(await kaliERC20.balanceOf(alice.address)).to.equal(getBigNumber(15))
   })
   it("Should process contract call proposal - Multiple", async function () {
     // Send Eth to Kali
@@ -848,18 +836,21 @@ describe("KaliDAO", function () {
       value: getBigNumber(10),
     })
     // Instantiate 1st contract
-    let FixedERC20 = await ethers.getContractFactory("FixedERC20")
-    let fixedERC20 = await FixedERC20.deploy(
-      "kali",
-      "kali",
-      18,
-      kali.address,
-      getBigNumber(100)
+    let KaliERC20 = await ethers.getContractFactory("KaliERC20")
+    let kaliERC20 = await KaliERC20.deploy()
+    await kaliERC20.deployed()
+    await kaliERC20.init(
+      "KALI",
+      "KALI",
+      "DOCS",
+      [kali.address],
+      [getBigNumber(100)],
+      false,
+      kali.address
     )
-    await fixedERC20.deployed()
-    let payload = fixedERC20.interface.encodeFunctionData("transfer", [
+    let payload = kaliERC20.interface.encodeFunctionData("transfer", [
       alice.address,
-      getBigNumber(15),
+      getBigNumber(15)
     ])
     // Instantiate 2nd contract
     let DropETH = await ethers.getContractFactory("DropETH")
@@ -883,15 +874,15 @@ describe("KaliDAO", function () {
     await kali.propose(
       2,
       "TEST",
-      [fixedERC20.address, dropETH.address],
+      [kaliERC20.address, dropETH.address],
       [0, getBigNumber(4)],
       [payload, payload2]
     )
     await kali.vote(1, true)
     await advanceTime(35)
     await kali.processProposal(1)
-    expect(await fixedERC20.totalSupply()).to.equal(getBigNumber(100))
-    expect(await fixedERC20.balanceOf(alice.address)).to.equal(getBigNumber(15))
+    expect(await kaliERC20.totalSupply()).to.equal(getBigNumber(100))
+    expect(await kaliERC20.balanceOf(alice.address)).to.equal(getBigNumber(15))
     expect(await dropETH.amount()).to.equal(getBigNumber(2))
     expect(await dropETH.recipients(1)).to.equal(bob.address)
   })
@@ -1069,7 +1060,8 @@ describe("KaliDAO", function () {
     // Instantiate extension contract
     let KaliDAOcrowdsale = await ethers.getContractFactory("KaliDAOcrowdsale")
     let kaliDAOcrowdsale = await KaliDAOcrowdsale.deploy(
-      kaliWhitelistManager.address
+      kaliWhitelistManager.address,
+      wethAddress
     )
     await kaliDAOcrowdsale.deployed()
     // Set up whitelist
@@ -1105,13 +1097,17 @@ describe("KaliDAO", function () {
   })
   it("Should process extension proposal - KaliDAOcrowdsale with ERC20", async function () {
     // Instantiate purchaseToken
-    let PurchaseToken = await ethers.getContractFactory("FixedERC20")
-    let purchaseToken = await PurchaseToken.deploy(
+    let PurchaseToken = await ethers.getContractFactory("KaliERC20")
+    let purchaseToken = await PurchaseToken.deploy()
+    await purchaseToken.deployed()
+    await purchaseToken.init(
       "KALI",
       "KALI",
-      "18",
-      alice.address,
-      getBigNumber(1000)
+      "DOCS",
+      [alice.address],
+      [getBigNumber(1000)],
+      false,
+      alice.address
     )
     await purchaseToken.deployed()
     // Instantiate KaliDAO
@@ -1135,7 +1131,8 @@ describe("KaliDAO", function () {
     // Instantiate extension contract
     let KaliDAOcrowdsale = await ethers.getContractFactory("KaliDAOcrowdsale")
     let kaliDAOcrowdsale = await KaliDAOcrowdsale.deploy(
-      kaliWhitelistManager.address
+      kaliWhitelistManager.address,
+      wethAddress
     )
     await kaliDAOcrowdsale.deployed()
     // Set up whitelist
