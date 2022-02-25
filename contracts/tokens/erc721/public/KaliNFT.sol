@@ -2,7 +2,8 @@
 
 pragma solidity >=0.8.4;
 
-import "../ERC721.sol";
+import '../ERC721.sol';
+import '../../../utils/Multicall.sol';
 
 /// @notice Public NFT minter for Kali DAO.
 contract KaliNFT is ERC721, Multicall {
