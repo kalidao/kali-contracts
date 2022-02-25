@@ -145,15 +145,19 @@ describe("Tribute", function () {
 
     it("Should process ERC20 tribute proposal", async function () {
         // Instantiate purchaseToken
-        let PurchaseToken = await ethers.getContractFactory("FixedERC20")
-        let purchaseToken = await PurchaseToken.deploy(
-            "DAI",
-            "DAI",
-            "18",
-            proposer.address,
-            getBigNumber(1000)
-        )
+        PurchaseToken = await ethers.getContractFactory("KaliERC20")
+        purchaseToken = await PurchaseToken.deploy()
         await purchaseToken.deployed()
+        await purchaseToken.init(
+            "KALI",
+            "KALI",
+            "DOCS",
+            [proposer.address],
+            [getBigNumber(1000)],
+            false,
+            proposer.address
+        )
+
         // Instantiate KaliDAO
         await kali.init(
           "KALI",
@@ -222,7 +226,7 @@ describe("Tribute", function () {
             "NFT"
         )
         await purchaseToken.deployed()
-        await purchaseToken.mint(proposer.address, 1)
+        await purchaseToken.mint(proposer.address, 1, "DOCS")
 
         // Instantiate KaliDAO
         await kali.init(
@@ -337,15 +341,18 @@ describe("Tribute", function () {
 
     it("Should allow ERC20 tribute proposal cancellation", async function () {
         // Instantiate purchaseToken
-        let PurchaseToken = await ethers.getContractFactory("FixedERC20")
-        let purchaseToken = await PurchaseToken.deploy(
-            "DAI",
-            "DAI",
-            "18",
-            proposer.address,
-            getBigNumber(1000)
-        )
+        PurchaseToken = await ethers.getContractFactory("KaliERC20")
+        purchaseToken = await PurchaseToken.deploy()
         await purchaseToken.deployed()
+        await purchaseToken.init(
+            "KALI",
+            "KALI",
+            "DOCS",
+            [proposer.address],
+            [getBigNumber(1000)],
+            false,
+            proposer.address
+        )
         // Instantiate KaliDAO
         await kali.init(
           "KALI",
@@ -412,7 +419,7 @@ describe("Tribute", function () {
             "NFT"
         )
         await purchaseToken.deployed()
-        await purchaseToken.mint(proposer.address, 1)
+        await purchaseToken.mint(proposer.address, 1, "DOCS")
 
         // Instantiate KaliDAO
         await kali.init(
@@ -550,15 +557,18 @@ describe("Tribute", function () {
 
     it("Should prevent cancellation of sponsored ERC20 tribute proposal", async function () {
         // Instantiate purchaseToken
-        let PurchaseToken = await ethers.getContractFactory("FixedERC20")
-        let purchaseToken = await PurchaseToken.deploy(
-            "DAI",
-            "DAI",
-            "18",
-            proposer.address,
-            getBigNumber(1000)
-        )
+        PurchaseToken = await ethers.getContractFactory("KaliERC20")
+        purchaseToken = await PurchaseToken.deploy()
         await purchaseToken.deployed()
+        await purchaseToken.init(
+            "KALI",
+            "KALI",
+            "DOCS",
+            [proposer.address],
+            [getBigNumber(1000)],
+            false,
+            proposer.address
+        )
         // Instantiate KaliDAO
         await kali.init(
           "KALI",
@@ -616,7 +626,7 @@ describe("Tribute", function () {
             "NFT"
         )
         await purchaseToken.deployed()
-        await purchaseToken.mint(proposer.address, 1)
+        await purchaseToken.mint(proposer.address, 1, "DOCS")
 
         // Instantiate KaliDAO
         await kali.init(
@@ -719,15 +729,18 @@ describe("Tribute", function () {
 
     it("Should return ERC20 tribute to proposer if proposal unsuccessful", async function () {
         // Instantiate purchaseToken
-        let PurchaseToken = await ethers.getContractFactory("FixedERC20")
-        let purchaseToken = await PurchaseToken.deploy(
-            "DAI",
-            "DAI",
-            "18",
-            proposer.address,
-            getBigNumber(1000)
-        )
+        PurchaseToken = await ethers.getContractFactory("KaliERC20")
+        purchaseToken = await PurchaseToken.deploy()
         await purchaseToken.deployed()
+        await purchaseToken.init(
+            "KALI",
+            "KALI",
+            "DOCS",
+            [proposer.address],
+            [getBigNumber(1000)],
+            false,
+            proposer.address
+        )
         // Instantiate KaliDAO
         await kali.init(
           "KALI",
@@ -786,7 +799,7 @@ describe("Tribute", function () {
             "NFT"
         )
         await purchaseToken.deployed()
-        await purchaseToken.mint(proposer.address, 1)
+        await purchaseToken.mint(proposer.address, 1, "DOCS")
 
         // Instantiate KaliDAO
         await kali.init(
