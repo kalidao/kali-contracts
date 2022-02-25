@@ -2,6 +2,8 @@ const { BigNumber } = require("ethers")
 const chai = require("chai")
 const { expect } = require("chai")
 
+const wethAddress = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+
 chai.should()
 
 // Defaults to e18 using amount * 10^18
@@ -33,22 +35,25 @@ describe("Crowdsale", function () {
       kali = await Kali.deploy()
       await kali.deployed()
 
-      PurchaseToken = await ethers.getContractFactory("FixedERC20")
-      purchaseToken = await PurchaseToken.deploy(
-        "DAI",
-        "DAI",
-        "18",
-        proposer.address,
-        getBigNumber(1000)
-      )
+      PurchaseToken = await ethers.getContractFactory("KaliERC20")
+      purchaseToken = await PurchaseToken.deploy()
       await purchaseToken.deployed()
+      await purchaseToken.init(
+        "KALI",
+        "KALI",
+        "DOCS",
+        [proposer.address],
+        [getBigNumber(1000)],
+        false,
+        proposer.address
+      )
 
       Whitelist = await ethers.getContractFactory("KaliAccessManager")
       whitelist = await Whitelist.deploy()
       await whitelist.deployed()
       
       Crowdsale = await ethers.getContractFactory("KaliDAOcrowdsale")
-      crowdsale = await Crowdsale.deploy(whitelist.address)
+      crowdsale = await Crowdsale.deploy(whitelist.address, wethAddress)
       await crowdsale.deployed()
     })
   
