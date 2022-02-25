@@ -2,7 +2,7 @@
 
 pragma solidity >=0.8.4;
 
-import '../tokens/ERC721/ERC721initializable.sol';
+import '../tokens/erc721/ERC721initializable.sol';
 import '../libraries/Base64.sol';
 import '../utils/NFThelper.sol';
 
