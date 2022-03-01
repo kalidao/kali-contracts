@@ -16,7 +16,15 @@ contract ClubSigFactory is Multicall {
     /// Events
     /// -----------------------------------------------------------------------
 
-    event SigDeployed(ClubSig indexed clubSig, address[] signers, uint256[] loots, uint256 quorum, bytes32 name, bytes32 symbol, bool paused);
+    event SigDeployed(
+        ClubSig indexed clubSig, 
+        address[] signers, 
+        uint256[] loots, 
+        uint256 quorum, 
+        bytes32 name, 
+        bytes32 symbol, 
+        bool paused
+    );
 
     /// -----------------------------------------------------------------------
     /// Errors
