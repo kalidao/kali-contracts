@@ -52,6 +52,7 @@ contract ClubSigFactory is Multicall {
     
     function deployClubSig(
         address[] calldata signers_, 
+        uint256[] calldata tokenIds_,
         uint256[] calldata loots_, 
         uint256 quorum_,
         bytes32 name_,
@@ -64,6 +65,7 @@ contract ClubSigFactory is Multicall {
 
         clubSig.init(
             signers_, 
+            tokenIds_,
             loots_, 
             quorum_,
             paused_
