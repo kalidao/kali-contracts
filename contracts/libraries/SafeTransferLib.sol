@@ -1,65 +1,65 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
-
+// SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.4;
 
-/// @notice Safe ETH and ERC-20 transfer library that gracefully handles missing return values.
-/// @author Modified from SolMate (https://github.com/Rari-Capital/solmate/blob/main/src/utils/SafeTransferLib.sol)
+/// @notice Safe ETH and ERC-20 transfer library that gracefully handles missing return values
+/// @author Modified from Solmate (https://github.com/Rari-Capital/solmate/blob/main/src/utils/SafeTransferLib.sol)
 /// License-Identifier: AGPL-3.0-only
-/// @dev Use with caution! Some functions in this library knowingly create dirty bits at the destination of the free memory pointer.
 library SafeTransferLib {
-    /*///////////////////////////////////////////////////////////////
-                            ERRORS
-    //////////////////////////////////////////////////////////////*/
+    /// -----------------------------------------------------------------------
+    /// Errors
+    /// -----------------------------------------------------------------------
 
     error ETHtransferFailed();
-
     error TransferFailed();
-
     error TransferFromFailed();
 
-    /*///////////////////////////////////////////////////////////////
-                            ETH OPERATIONS
-    //////////////////////////////////////////////////////////////*/
+    /// -----------------------------------------------------------------------
+    /// ETH Logic
+    /// -----------------------------------------------------------------------
 
     function _safeTransferETH(address to, uint256 amount) internal {
-        bool callStatus;
+        bool success;
 
         assembly {
             // transfer the ETH and store if it succeeded or not
-            callStatus := call(gas(), to, amount, 0, 0, 0, 0)
+            success := call(gas(), to, amount, 0, 0, 0, 0)
         }
 
-        if (!callStatus) revert ETHtransferFailed();
+        if (!success) revert ETHtransferFailed();
     }
 
-    /*///////////////////////////////////////////////////////////////
-                            ERC20 OPERATIONS
-    //////////////////////////////////////////////////////////////*/
+    /// -----------------------------------------------------------------------
+    /// ERC-20 Logic
+    /// -----------------------------------------------------------------------
 
     function _safeTransfer(
         address token,
         address to,
         uint256 amount
     ) internal {
-        bool callStatus;
+        bool success;
 
         assembly {
             // get a pointer to some free memory
             let freeMemoryPointer := mload(0x40)
+            // write the abi-encoded calldata into memory, beginning with the function selector
+            mstore(freeMemoryPointer, 0xa9059cbb00000000000000000000000000000000000000000000000000000000)
+            mstore(add(freeMemoryPointer, 4), to) // append the 'to' argument
+            mstore(add(freeMemoryPointer, 36), amount) // append the 'amount' argument
 
-            // write the abi-encoded calldata to memory piece by piece:
-            mstore(freeMemoryPointer, 0xa9059cbb00000000000000000000000000000000000000000000000000000000) // begin with the function selector
-            
-            mstore(add(freeMemoryPointer, 4), and(to, 0xffffffffffffffffffffffffffffffffffffffff)) // mask and append the "to" argument
-            
-            mstore(add(freeMemoryPointer, 36), amount) // finally append the "amount" argument - no mask as it's a full 32 byte value
-
-            // call the token and store if it succeeded or not
-            // we use 68 because the calldata length is 4 + 32 * 2
-            callStatus := call(gas(), token, 0, freeMemoryPointer, 68, 0, 0)
+            success := and(
+                // set success to whether the call reverted, if not we check it either
+                // returned exactly 1 (can't just be non-zero data), or had no return data
+                or(and(eq(mload(0), 1), gt(returndatasize(), 31)), iszero(returndatasize())),
+                // we use 68 because the length of our calldata totals up like so: 4 + 32 * 2
+                // we use 0 and 32 to copy up to 32 bytes of return data into the scratch space
+                // counterintuitively, this call must be positioned second to the or() call in the
+                // surrounding and() call or else returndatasize() will be zero during the computation
+                call(gas(), token, 0, freeMemoryPointer, 68, 0, 32)
+            )
         }
 
-        if (!_didLastOptionalReturnCallSucceed(callStatus)) revert TransferFailed();
+        if (!success) revert TransferFailed();
     }
 
     function _safeTransferFrom(
@@ -68,64 +68,29 @@ library SafeTransferLib {
         address to,
         uint256 amount
     ) internal {
-        bool callStatus;
+        bool success;
 
         assembly {
             // get a pointer to some free memory
             let freeMemoryPointer := mload(0x40)
+            // write the abi-encoded calldata into memory, beginning with the function selector
+            mstore(freeMemoryPointer, 0x23b872dd00000000000000000000000000000000000000000000000000000000)
+            mstore(add(freeMemoryPointer, 4), from) // append the 'from' argument
+            mstore(add(freeMemoryPointer, 36), to) // append the 'to' argument
+            mstore(add(freeMemoryPointer, 68), amount) // append the 'amount' argument
 
-            // write the abi-encoded calldata to memory piece by piece:
-            mstore(freeMemoryPointer, 0x23b872dd00000000000000000000000000000000000000000000000000000000) // begin with the function selector
-            
-            mstore(add(freeMemoryPointer, 4), and(from, 0xffffffffffffffffffffffffffffffffffffffff)) // mask and append the "from" argument
-            
-            mstore(add(freeMemoryPointer, 36), and(to, 0xffffffffffffffffffffffffffffffffffffffff)) // mask and append the "to" argument
-            
-            mstore(add(freeMemoryPointer, 68), amount) // finally append the "amount" argument - no mask as it's a full 32 byte value
-
-            // call the token and store if it succeeded or not
-            // we use 100 because the calldata length is 4 + 32 * 3
-            callStatus := call(gas(), token, 0, freeMemoryPointer, 100, 0, 0)
+            success := and(
+                // set success to whether the call reverted, if not we check it either
+                // returned exactly 1 (can't just be non-zero data), or had no return data
+                or(and(eq(mload(0), 1), gt(returndatasize(), 31)), iszero(returndatasize())),
+                // we use 100 because the length of our calldata totals up like so: 4 + 32 * 3
+                // we use 0 and 32 to copy up to 32 bytes of return data into the scratch space
+                // counterintuitively, this call must be positioned second to the or() call in the
+                // surrounding and() call or else returndatasize() will be zero during the computation
+                call(gas(), token, 0, freeMemoryPointer, 100, 0, 32)
+            )
         }
 
-        if (!_didLastOptionalReturnCallSucceed(callStatus)) revert TransferFromFailed();
-    }
-
-    /*///////////////////////////////////////////////////////////////
-                            INTERNAL HELPER LOGIC
-    //////////////////////////////////////////////////////////////*/
-
-    function _didLastOptionalReturnCallSucceed(bool callStatus) internal pure returns (bool success) {
-        assembly {
-            // get how many bytes the call returned
-            let returnDataSize := returndatasize()
-
-            // if the call reverted:
-            if iszero(callStatus) {
-                // copy the revert message into memory
-                returndatacopy(0, 0, returnDataSize)
-
-                // revert with the same message
-                revert(0, returnDataSize)
-            }
-
-            switch returnDataSize
-            
-            case 32 {
-                // copy the return data into memory
-                returndatacopy(0, 0, returnDataSize)
-
-                // set success to whether it returned true
-                success := iszero(iszero(mload(0)))
-            }
-            case 0 {
-                // there was no return data
-                success := 1
-            }
-            default {
-                // it returned some malformed input
-                success := 0
-            }
-        }
+        if (!success) revert TransferFromFailed();
     }
 }
