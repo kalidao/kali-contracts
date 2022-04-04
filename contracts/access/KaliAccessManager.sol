@@ -5,84 +5,80 @@ pragma solidity >=0.8.4;
 import '../libraries/MerkleProof.sol';
 import '../utils/Multicall.sol';
 
-/// @notice Kali DAO access manager.
+import "https://github.com/Rari-Capital/solmate/blob/main/src/tokens/ERC1155.sol";
+
+/// @notice Kali DAO access manager
 /// @author Modified from SushiSwap
 /// (https://github.com/sushiswap/trident/blob/master/contracts/pool/franchised/WhiteListManager.sol)
-contract KaliAccessManager is Multicall {
+/// License-Identifier: GPL-3.0-or-later
+contract KaliAccessManager is Multicall, ERC1155 {
+    /// -----------------------------------------------------------------------
+    /// Library Usage
+    /// -----------------------------------------------------------------------
+
     using MerkleProof for bytes32[];
 
-    /*///////////////////////////////////////////////////////////////
-                            EVENTS
-    //////////////////////////////////////////////////////////////*/
+    /// -----------------------------------------------------------------------
+    /// Events
+    /// -----------------------------------------------------------------------
 
-    event ListCreated(uint256 indexed listId, address indexed operator);
+    event ListCreated(address indexed operator, uint256 indexed id);
+    event MerkleRootSet(uint256 indexed id, bytes32 merkleRoot);
+    event ListJoined(address indexed account, uint256 indexed id);
 
-    event AccountListed(uint256 indexed listId, address indexed account, bool approved);
-
-    event MerkleRootSet(uint256 indexed listId, bytes32 merkleRoot);
-
-    event ListJoined(uint256 indexed listId, address indexed account);
-
-    /*///////////////////////////////////////////////////////////////
-                            ERRORS
-    //////////////////////////////////////////////////////////////*/
+    /// -----------------------------------------------------------------------
+    /// Errors
+    /// -----------------------------------------------------------------------
 
     error NotOperator();
-    
     error NoArrayParity();
-
     error SignatureExpired();
-
     error InvalidSignature();
-
     error ListClaimed();
-
     error InvalidList();
-
     error NotOnList();
 
-    /*///////////////////////////////////////////////////////////////
-                            EIP-712 STORAGE
-    //////////////////////////////////////////////////////////////*/
+    /// -----------------------------------------------------------------------
+    /// EIP-712 Storage
+    /// -----------------------------------------------------------------------
 
     uint256 internal immutable INITIAL_CHAIN_ID;
-
     bytes32 internal immutable INITIAL_DOMAIN_SEPARATOR;
-
     bytes32 internal constant LIST_TYPEHASH =
-        keccak256('List(address account,bool approved,uint256 deadline)');
+        keccak256('List(address account,uint256 id,bool approved,uint256 deadline)');
 
-    /*///////////////////////////////////////////////////////////////
-                            LIST STORAGE
-    //////////////////////////////////////////////////////////////*/
-
-    mapping(uint256 => address) public operatorOf;
-
-    mapping(uint256 => bytes32) public merkleRoots;
-
-    mapping(uint256 => mapping(address => bool)) public listedAccounts;
+    /// -----------------------------------------------------------------------
+    /// List Storage
+    /// -----------------------------------------------------------------------
 
     uint256 public listCount;
 
-    /*///////////////////////////////////////////////////////////////
-                            CONSTRUCTOR
-    //////////////////////////////////////////////////////////////*/
+    mapping(uint256 => address) public operatorOf;
+    mapping(uint256 => bytes32) public merkleRoots;
+    mapping(uint256 => string) public uris;
+
+    function uri(uint256 id) public override view returns (string memory) {
+        return uris[id];
+    }
+
+    /// -----------------------------------------------------------------------
+    /// Constructor
+    /// -----------------------------------------------------------------------
 
     constructor() {
         INITIAL_CHAIN_ID = block.chainid;
-
         INITIAL_DOMAIN_SEPARATOR = _computeDomainSeparator();
     }
 
-    /*///////////////////////////////////////////////////////////////
-                            EIP-712 LOGIC
-    //////////////////////////////////////////////////////////////*/
+    /// -----------------------------------------------------------------------
+    /// EIP-712 Logic
+    /// -----------------------------------------------------------------------
 
-    function DOMAIN_SEPARATOR() public view virtual returns (bytes32) {
+    function DOMAIN_SEPARATOR() public view returns (bytes32) {
         return block.chainid == INITIAL_CHAIN_ID ? INITIAL_DOMAIN_SEPARATOR : _computeDomainSeparator();
     }
 
-    function _computeDomainSeparator() internal view virtual returns (bytes32) {
+    function _computeDomainSeparator() internal view returns (bytes32) {
         return
             keccak256(
                 abi.encode(
@@ -95,115 +91,113 @@ contract KaliAccessManager is Multicall {
             );
     }
 
-    /*///////////////////////////////////////////////////////////////
-                            LIST LOGIC
-    //////////////////////////////////////////////////////////////*/
+    /// -----------------------------------------------------------------------
+    /// List Logic
+    /// -----------------------------------------------------------------------
 
-    function isListed(uint256 listId, address account) public view virtual returns (bool) {
-        return listedAccounts[listId][account];
-    }
+    function createList(
+        address[] calldata accounts, 
+        bytes32 merkleRoot, 
+        string calldata metadata
+    ) external {
+        uint256 id = ++listCount;
 
-    function createList(address[] calldata accounts, bytes32 merkleRoot) public virtual {
-        uint256 listId = ++listCount;
-
-        operatorOf[listId] = msg.sender;
+        operatorOf[id] = msg.sender;
 
         if (accounts.length != 0) {
-            // cannot realistically overflow on human timescales
-            unchecked {
-                for (uint256 i; i < accounts.length; i++) {
-                    _listAccount(listId, accounts[i], true);
+            for (uint256 i; i < accounts.length; ) {
+                _listAccount(accounts[i], id, true);
+                // cannot realistically overflow on human timescales
+                unchecked {
+                    ++i;
                 }
             }
 
-            emit ListCreated(listId, msg.sender);
+            emit ListCreated(msg.sender, id);
         }
 
         if (merkleRoot != '') {
-            merkleRoots[listId] = merkleRoot;
-
-            emit MerkleRootSet(listId, merkleRoot);
+            merkleRoots[id] = merkleRoot;
+            emit MerkleRootSet(id, merkleRoot);
         }
+
+        uris[id] = metadata;
     }
 
     function listAccounts(
-        uint256 listId,
+        uint256 id,
         address[] calldata accounts,
         bool[] calldata approvals
-    ) public virtual {
-        if (msg.sender != operatorOf[listId]) revert NotOperator();
-
+    ) external {
+        if (msg.sender != operatorOf[id]) revert NotOperator();
         if (accounts.length != approvals.length) revert NoArrayParity();
 
-        // cannot realistically overflow on human timescales
-        unchecked {
-            for (uint256 i; i < accounts.length; i++) {
-                _listAccount(listId, accounts[i], approvals[i]);
+        for (uint256 i; i < accounts.length; ) {
+            _listAccount(accounts[i], id, approvals[i]);
+            // cannot realistically overflow on human timescales
+            unchecked {
+                ++i;
             }
         }
     }
 
     function listAccountBySig(
-        uint256 listId,
         address account,
+        uint256 id,
         bool approved,
         uint256 deadline,
         uint8 v,
         bytes32 r,
         bytes32 s
-    ) public virtual {
+    ) external {
         if (block.timestamp > deadline) revert SignatureExpired();
 
         bytes32 digest = keccak256(
             abi.encodePacked(
                 '\x19\x01',
                 DOMAIN_SEPARATOR(),
-                keccak256(abi.encode(LIST_TYPEHASH, account, approved, deadline))
+                keccak256(abi.encode(LIST_TYPEHASH, account, id, approved, deadline))
             )
         );
 
         address recoveredAddress = ecrecover(digest, v, r, s);
 
-        if (recoveredAddress == address(0) || recoveredAddress != operatorOf[listId]) revert InvalidSignature();
+        if (recoveredAddress == address(0) || recoveredAddress != operatorOf[id]) revert InvalidSignature();
 
-        _listAccount(listId, account, approved);
+        _listAccount(account, id, approved);
     }
 
     function _listAccount(
-        uint256 listId,
         address account,
+        uint256 id,
         bool approved
-    ) internal virtual {
-        listedAccounts[listId][account] = approved;
-
-        emit AccountListed(listId, account, approved);
+    ) internal {
+        approved ? _mint(account, id, 1, '') : _burn(account, id, 1);
     }
 
-    /*///////////////////////////////////////////////////////////////
-                            MERKLE LOGIC
-    //////////////////////////////////////////////////////////////*/
+    /// -----------------------------------------------------------------------
+    /// Merkle Logic
+    /// -----------------------------------------------------------------------
 
-    function setMerkleRoot(uint256 listId, bytes32 merkleRoot) public virtual {
-        if (msg.sender != operatorOf[listId]) revert NotOperator();
+    function setMerkleRoot(uint256 id, bytes32 merkleRoot) external {
+        if (msg.sender != operatorOf[id]) revert NotOperator();
 
-        merkleRoots[listId] = merkleRoot;
+        merkleRoots[id] = merkleRoot;
 
-        emit MerkleRootSet(listId, merkleRoot);
+        emit MerkleRootSet(id, merkleRoot);
     }
 
     function joinList(
-        uint256 listId,
         address account,
+        uint256 id,
         bytes32[] calldata merkleProof
-    ) public virtual {
-        if (isListed(listId, account)) revert ListClaimed();
+    ) external {
+        if (balanceOf[account][id] != 0) revert ListClaimed();
+        if (merkleRoots[id] == 0) revert InvalidList();
+        if (!merkleProof.verify(merkleRoots[id], keccak256(abi.encodePacked(account)))) revert NotOnList();
 
-        if (merkleRoots[listId] == 0) revert InvalidList();
+        _listAccount(account, id, true);
 
-        if (!merkleProof.verify(merkleRoots[listId], keccak256(abi.encodePacked(account)))) revert NotOnList();
-
-        _listAccount(listId, account, true);
-
-        emit ListJoined(listId, account);
+        emit ListJoined(account, id);
     }
 }
