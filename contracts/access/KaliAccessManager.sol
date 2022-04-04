@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.4;
 
-import '../libraries/MerkleProof.sol';
-import '../utils/Multicall.sol';
+import {MerkleProof} from '../libraries/MerkleProof.sol';
+
+import {Multicall} from '../utils/Multicall.sol';
+
 import 'https://github.com/Rari-Capital/solmate/blob/main/src/tokens/ERC1155.sol';
 
 /// @notice Kali DAO access manager
