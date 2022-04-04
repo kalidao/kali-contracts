@@ -5,13 +5,13 @@ import {MerkleProof} from '../libraries/MerkleProof.sol';
 
 import {Multicall} from '../utils/Multicall.sol';
 
-import 'https://github.com/Rari-Capital/solmate/blob/main/src/tokens/ERC1155.sol';
+import {ERC1155 as SolmateERC1155} from 'https://github.com/Rari-Capital/solmate/blob/main/src/tokens/ERC1155.sol';
 
 /// @notice Kali DAO access manager
 /// @author Modified from SushiSwap
 /// (https://github.com/sushiswap/trident/blob/master/contracts/pool/franchised/WhiteListManager.sol)
 /// License-Identifier: GPL-3.0-or-later
-contract KaliAccessManager is Multicall, ERC1155 {
+contract KaliAccessManager is Multicall, SolmateERC1155 {
     /// -----------------------------------------------------------------------
     /// Library Usage
     /// -----------------------------------------------------------------------
