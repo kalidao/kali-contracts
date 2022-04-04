@@ -86,43 +86,6 @@ contract KaliDAOcrowdsale is KaliOwnable, Multicall, ReentrancyGuard {
     }
 
     /// -----------------------------------------------------------------------
-    /// Management
-    /// -----------------------------------------------------------------------
-
-    function setExtension(bytes calldata extensionData) external nonReentrant {
-        (
-            uint256 listId, 
-            uint8 purchaseMultiplier,
-            address purchaseAsset, 
-            uint32 saleEnds, 
-            uint96 purchaseLimit, 
-            uint96 personalLimit,
-            string memory details
-        ) 
-            = abi.decode(extensionData, (uint256, uint8, address, uint32, uint96, uint96, string));
-        
-        if (purchaseMultiplier == 0) revert NullMultiplier();
-
-        // caller is stored as `dao` target for sale
-        Crowdsale storage sale = crowdsales[msg.sender];
-        // we use this format as we have nested mapping
-        sale.listId = listId;
-        sale.purchaseMultiplier = purchaseMultiplier;
-        sale.purchaseAsset = purchaseAsset;
-        sale.saleEnds = saleEnds;
-        sale.purchaseLimit = purchaseLimit;
-        sale.personalLimit = personalLimit;
-        sale.details = details;
-
-        emit ExtensionSet(msg.sender, listId, purchaseMultiplier, purchaseAsset, saleEnds, purchaseLimit, personalLimit, details);
-    }
-
-    function setKaliRate(uint8 kaliRate_) external onlyOwner {
-        kaliRate = kaliRate_;
-        emit KaliRateSet(kaliRate_);
-    }
-
-    /// -----------------------------------------------------------------------
     /// Multicall Utilities
     /// -----------------------------------------------------------------------
 
@@ -154,6 +117,38 @@ contract KaliDAOcrowdsale is KaliOwnable, Multicall, ReentrancyGuard {
     }
 
     /// -----------------------------------------------------------------------
+    /// Sale Settings
+    /// -----------------------------------------------------------------------
+
+    function setExtension(bytes calldata extensionData) external nonReentrant {
+        (
+            uint256 listId, 
+            uint8 purchaseMultiplier,
+            address purchaseAsset, 
+            uint32 saleEnds, 
+            uint96 purchaseLimit, 
+            uint96 personalLimit,
+            string memory details
+        ) 
+            = abi.decode(extensionData, (uint256, uint8, address, uint32, uint96, uint96, string));
+        
+        if (purchaseMultiplier == 0) revert NullMultiplier();
+
+        // caller is stored as `dao` target for sale
+        Crowdsale storage sale = crowdsales[msg.sender];
+        // we use this format as we have nested mapping
+        sale.listId = listId;
+        sale.purchaseMultiplier = purchaseMultiplier;
+        sale.purchaseAsset = purchaseAsset;
+        sale.saleEnds = saleEnds;
+        sale.purchaseLimit = purchaseLimit;
+        sale.personalLimit = personalLimit;
+        sale.details = details;
+
+        emit ExtensionSet(msg.sender, listId, purchaseMultiplier, purchaseAsset, saleEnds, purchaseLimit, personalLimit, details);
+    }
+
+    /// -----------------------------------------------------------------------
     /// Sale Logic
     /// -----------------------------------------------------------------------
 
@@ -171,8 +166,16 @@ contract KaliDAOcrowdsale is KaliOwnable, Multicall, ReentrancyGuard {
             if (sale.purchaseTotal + amountOut > sale.purchaseLimit) revert PurchaseLimit();
             if (sale.personalPurchased[msg.sender] + amountOut > sale.personalLimit) revert PersonalLimit();
 
+            uint256 payment;
+            if (kaliRate == 0) {
+                payment = msg.value;
+            } else {
+                uint256 fee = msg.value / kaliRate;
+                payment = msg.value - fee;
+            }
+
             // send ETH to DAO
-            dao._safeTransferETH(msg.value);
+            dao._safeTransferETH(payment);
 
             sale.purchaseTotal += uint96(amountOut);
             sale.personalPurchased[msg.sender] += amountOut;
@@ -184,10 +187,18 @@ contract KaliDAOcrowdsale is KaliOwnable, Multicall, ReentrancyGuard {
             if (sale.purchaseTotal + amountOut > sale.purchaseLimit) revert PurchaseLimit();
             if (sale.personalPurchased[msg.sender] + amountOut > sale.personalLimit) revert PersonalLimit();
 
+            uint256 payment;
+            if (kaliRate == 0) {
+                payment = msg.value;
+            } else {
+                uint256 fee = msg.value / kaliRate;
+                payment = msg.value - fee;
+            }
+
             // send ETH to wETH
             wETH._safeTransferETH(msg.value);
             // send wETH to DAO
-            wETH._safeTransfer(dao, msg.value);
+            wETH._safeTransfer(dao, payment);
 
             sale.purchaseTotal += uint96(amountOut);
             sale.personalPurchased[msg.sender] += amountOut;
@@ -199,8 +210,16 @@ contract KaliDAOcrowdsale is KaliOwnable, Multicall, ReentrancyGuard {
             if (sale.purchaseTotal + amountOut > sale.purchaseLimit) revert PurchaseLimit();
             if (sale.personalPurchased[msg.sender] + amountOut > sale.personalLimit) revert PersonalLimit();
 
+            uint256 payment;
+            if (kaliRate == 0) {
+                payment = amount;
+            } else {
+                uint256 fee = amount / kaliRate;
+                payment = amount - fee;
+            }
+
             // send tokens to DAO
-            sale.purchaseAsset._safeTransferFrom(msg.sender, dao, amount);
+            sale.purchaseAsset._safeTransferFrom(msg.sender, dao, payment);
 
             sale.purchaseTotal += uint96(amountOut);
             sale.personalPurchased[msg.sender] += amountOut;
@@ -209,5 +228,26 @@ contract KaliDAOcrowdsale is KaliOwnable, Multicall, ReentrancyGuard {
         }
 
         emit ExtensionCalled(dao, msg.sender, amountOut);
+    }
+
+    /// -----------------------------------------------------------------------
+    /// Sale Management
+    /// -----------------------------------------------------------------------
+
+    function setKaliRate(uint8 kaliRate_) external onlyOwner {
+        kaliRate = kaliRate_;
+        emit KaliRateSet(kaliRate_);
+    }
+
+    function claimKaliFees(
+        address to, 
+        address asset, 
+        uint256 amount
+    ) external onlyOwner {
+        if (asset == address(0)) {
+            to._safeTransferETH(amount);
+        } else {
+            asset._safeTransfer(to, amount);
+        }
     }
 }
