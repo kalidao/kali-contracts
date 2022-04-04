@@ -11,6 +11,7 @@ abstract contract ReentrancyGuard {
 
     modifier nonReentrant() {
         if (locked != 1) revert Reentrancy();
+        
         locked = 2;
         _;
         locked = 1;
