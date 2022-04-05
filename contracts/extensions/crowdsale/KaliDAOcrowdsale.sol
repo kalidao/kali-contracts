@@ -160,72 +160,39 @@ contract KaliDAOcrowdsale is KaliOwnable, Multicall, ReentrancyGuard {
         if (sale.listId != 0) 
             if (accessManager.balanceOf(msg.sender, sale.listId) == 0) revert NotListed();
 
+        uint256 total;
+
+        if (sale.purchaseAsset == address(0) || sale.purchaseAsset == address(0xDead)) {
+            total = msg.value;
+        } else {
+            total = amount;
+        }
+
+        uint256 fee = total * (kaliRate / 100);
+        uint256 payment = total - fee;
+        amountOut = total * sale.purchaseMultiplier;
+
+        if (sale.purchaseTotal + amountOut > sale.purchaseLimit) revert PurchaseLimit();
+        if (sale.personalPurchased[msg.sender] + amountOut > sale.personalLimit) revert PersonalLimit();
+    
         if (sale.purchaseAsset == address(0)) {
-            amountOut = msg.value * sale.purchaseMultiplier;
-
-            if (sale.purchaseTotal + amountOut > sale.purchaseLimit) revert PurchaseLimit();
-            if (sale.personalPurchased[msg.sender] + amountOut > sale.personalLimit) revert PersonalLimit();
-
-            uint256 payment;
-            if (kaliRate == 0) {
-                payment = msg.value;
-            } else {
-                uint256 fee = msg.value / kaliRate;
-                payment = msg.value - fee;
-            }
-
             // send ETH to DAO
             dao._safeTransferETH(payment);
 
-            sale.purchaseTotal += uint96(amountOut);
-            sale.personalPurchased[msg.sender] += amountOut;
-
-            IKaliShareManager(dao).mintShares(msg.sender, amountOut);
         } else if (sale.purchaseAsset == address(0xDead)) {
-            amountOut = msg.value * sale.purchaseMultiplier;
-
-            if (sale.purchaseTotal + amountOut > sale.purchaseLimit) revert PurchaseLimit();
-            if (sale.personalPurchased[msg.sender] + amountOut > sale.personalLimit) revert PersonalLimit();
-
-            uint256 payment;
-            if (kaliRate == 0) {
-                payment = msg.value;
-            } else {
-                uint256 fee = msg.value / kaliRate;
-                payment = msg.value - fee;
-            }
-
             // send ETH to wETH
             wETH._safeTransferETH(msg.value);
             // send wETH to DAO
             wETH._safeTransfer(dao, payment);
 
-            sale.purchaseTotal += uint96(amountOut);
-            sale.personalPurchased[msg.sender] += amountOut;
-
-            IKaliShareManager(dao).mintShares(msg.sender, amountOut);
         } else {
-            amountOut = amount * sale.purchaseMultiplier;
-
-            if (sale.purchaseTotal + amountOut > sale.purchaseLimit) revert PurchaseLimit();
-            if (sale.personalPurchased[msg.sender] + amountOut > sale.personalLimit) revert PersonalLimit();
-
-            uint256 payment;
-            if (kaliRate == 0) {
-                payment = amount;
-            } else {
-                uint256 fee = amount / kaliRate;
-                payment = amount - fee;
-            }
-
             // send tokens to DAO
             sale.purchaseAsset._safeTransferFrom(msg.sender, dao, payment);
-
-            sale.purchaseTotal += uint96(amountOut);
-            sale.personalPurchased[msg.sender] += amountOut;
-            
-            IKaliShareManager(dao).mintShares(msg.sender, amountOut);
         }
+        sale.purchaseTotal += uint96(amountOut);
+        sale.personalPurchased[msg.sender] += amountOut;
+            
+        IKaliShareManager(dao).mintShares(msg.sender, amountOut);
 
         emit ExtensionCalled(dao, msg.sender, amountOut);
     }
