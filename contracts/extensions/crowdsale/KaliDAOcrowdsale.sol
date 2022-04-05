@@ -168,7 +168,7 @@ contract KaliDAOcrowdsale is KaliOwnable, Multicall, ReentrancyGuard {
             total = amount;
         }
 
-        uint256 fee = total * (kaliRate / 100);
+        uint256 fee = (total * kaliRate) / 100;
         uint256 payment = total - fee;
         amountOut = total * sale.purchaseMultiplier;
 
