@@ -22,16 +22,15 @@ contract KaliAccessManager is Multicall, SolmateERC1155 {
     /// Events
     /// -----------------------------------------------------------------------
 
-    event ListCreated(address indexed operator, uint256 indexed id);
-    event MerkleRootSet(uint256 indexed id, bytes32 merkleRoot);
-    event ListJoined(address indexed account, uint256 indexed id);
+    event ListCreated(address indexed operator, uint256 id);
+    event MerkleRootSet(uint256 id, bytes32 merkleRoot);
+    event AccountListed(address indexed account, uint256 id, bool approved);
 
     /// -----------------------------------------------------------------------
     /// Errors
     /// -----------------------------------------------------------------------
 
     error NotOperator();
-    error NoArrayParity();
     error SignatureExpired();
     error InvalidSignature();
     error ListClaimed();
@@ -56,6 +55,11 @@ contract KaliAccessManager is Multicall, SolmateERC1155 {
     mapping(uint256 => address) public operatorOf;
     mapping(uint256 => bytes32) public merkleRoots;
     mapping(uint256 => string) private uris;
+
+    struct Listing {
+        address account;
+        bool approval;
+    }
 
     function uri(uint256 id) public override view returns (string memory) {
         return uris[id];
@@ -99,8 +103,11 @@ contract KaliAccessManager is Multicall, SolmateERC1155 {
         address[] calldata accounts, 
         bytes32 merkleRoot, 
         string calldata metadata
-    ) external {
-        uint256 id = ++listCount;
+    ) external returns (uint256 id) {
+        // cannot realistically overflow on human timescales
+        unchecked {
+            id = ++listCount;
+        }
 
         operatorOf[id] = msg.sender;
 
@@ -112,8 +119,6 @@ contract KaliAccessManager is Multicall, SolmateERC1155 {
                     ++i;
                 }
             }
-
-            emit ListCreated(msg.sender, id);
         }
 
         if (merkleRoot != '') {
@@ -122,18 +127,16 @@ contract KaliAccessManager is Multicall, SolmateERC1155 {
         }
 
         uris[id] = metadata;
+        
+        emit URI(metadata, id);
+        emit ListCreated(msg.sender, id);
     }
 
-    function listAccounts(
-        uint256 id,
-        address[] calldata accounts,
-        bool[] calldata approvals
-    ) external {
+    function listAccounts(uint256 id, Listing[] calldata listings) external {
         if (msg.sender != operatorOf[id]) revert NotOperator();
-        if (accounts.length != approvals.length) revert NoArrayParity();
 
-        for (uint256 i; i < accounts.length; ) {
-            _listAccount(accounts[i], id, approvals[i]);
+        for (uint256 i; i < listings.length; ) {
+            _listAccount(listings[i].account, id, listings[i].approval);
             // cannot realistically overflow on human timescales
             unchecked {
                 ++i;
@@ -152,15 +155,28 @@ contract KaliAccessManager is Multicall, SolmateERC1155 {
     ) external {
         if (block.timestamp > deadline) revert SignatureExpired();
 
-        bytes32 digest = keccak256(
-            abi.encodePacked(
-                '\x19\x01',
-                DOMAIN_SEPARATOR(),
-                keccak256(abi.encode(LIST_TYPEHASH, account, id, approved, deadline))
-            )
+        address recoveredAddress = ecrecover(
+            keccak256(
+                abi.encodePacked(
+                    '\x19\x01',
+                    DOMAIN_SEPARATOR(),
+                    keccak256(
+                        abi.encode(
+                            keccak256(
+                                'List(address account,uint256 id,bool approved,uint256 deadline)'
+                            ),
+                            account,
+                            id,
+                            approved,
+                            deadline
+                        )
+                    )
+                )
+            ),
+            v,
+            r,
+            s
         );
-
-        address recoveredAddress = ecrecover(digest, v, r, s);
 
         if (recoveredAddress == address(0) || recoveredAddress != operatorOf[id]) revert InvalidSignature();
 
@@ -173,6 +189,7 @@ contract KaliAccessManager is Multicall, SolmateERC1155 {
         bool approved
     ) private {
         approved ? _mint(account, id, 1, '') : _burn(account, id, 1);
+        emit AccountListed(account, id, approved);
     }
 
     /// -----------------------------------------------------------------------
@@ -197,7 +214,5 @@ contract KaliAccessManager is Multicall, SolmateERC1155 {
         if (!merkleProof.verify(merkleRoots[id], keccak256(abi.encodePacked(account)))) revert NotOnList();
 
         _listAccount(account, id, true);
-
-        emit ListJoined(account, id);
     }
 }
