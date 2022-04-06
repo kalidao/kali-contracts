@@ -22,7 +22,7 @@ abstract contract KaliOwnable {
         emit OwnershipTransferred(address(0), owner_);
     }
 
-    function claimOwner() external {
+    function claimOwner() external payable {
         if (msg.sender != pendingOwner) revert NotPendingOwner();
 
         emit OwnershipTransferred(owner, msg.sender);
@@ -31,7 +31,7 @@ abstract contract KaliOwnable {
         delete pendingOwner;
     }
 
-    function transferOwner(address to, bool direct) external onlyOwner {
+    function transferOwner(address to, bool direct) external payable onlyOwner {
         if (direct) {
             owner = to;
             emit OwnershipTransferred(msg.sender, to);
