@@ -111,8 +111,10 @@ contract KaliAccessManager is Multicall, SolmateERC1155 {
 
         operatorOf[id] = msg.sender;
 
-        if (accounts.length != 0) {
-            for (uint256 i; i < accounts.length; ) {
+        uint256 length = accounts.length;
+
+        if (length != 0) {
+            for (uint256 i; i < length; ) {
                 _listAccount(accounts[i], id, true);
                 // cannot realistically overflow on human timescales
                 unchecked {
