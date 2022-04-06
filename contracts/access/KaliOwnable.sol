@@ -28,7 +28,7 @@ abstract contract KaliOwnable {
         emit OwnershipTransferred(owner, msg.sender);
 
         owner = msg.sender;
-        pendingOwner = address(0);
+        delete pendingOwner;
     }
 
     function transferOwner(address to, bool direct) external onlyOwner {
