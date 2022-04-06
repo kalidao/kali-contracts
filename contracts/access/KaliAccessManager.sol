@@ -31,7 +31,6 @@ contract KaliAccessManager is Multicall, SolmateERC1155 {
     error SignatureExpired();
     error InvalidSignature();
     error ListClaimed();
-    error InvalidList();
     error NotOnList();
 
     /// -----------------------------------------------------------------------
@@ -207,7 +206,6 @@ contract KaliAccessManager is Multicall, SolmateERC1155 {
         bytes32[] calldata merkleProof
     ) external payable {
         if (balanceOf[account][id] != 0) revert ListClaimed();
-        if (merkleRoots[id] == 0) revert InvalidList();
         if (!merkleProof.verify(merkleRoots[id], keccak256(abi.encodePacked(account)))) revert NotOnList();
 
         _listAccount(account, id, true);
