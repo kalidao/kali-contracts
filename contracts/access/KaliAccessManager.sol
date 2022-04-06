@@ -98,7 +98,7 @@ contract KaliAccessManager is Multicall, SolmateERC1155 {
         address[] calldata accounts, 
         bytes32 merkleRoot, 
         string calldata metadata
-    ) external returns (uint256 id) {
+    ) external payable returns (uint256 id) {
         // cannot realistically overflow on human timescales
         unchecked {
             id = ++listCount;
@@ -129,7 +129,7 @@ contract KaliAccessManager is Multicall, SolmateERC1155 {
         emit ListCreated(msg.sender, id);
     }
 
-    function listAccounts(uint256 id, Listing[] calldata listings) external {
+    function listAccounts(uint256 id, Listing[] calldata listings) external payable {
         if (msg.sender != operatorOf[id]) revert NotOperator();
 
         for (uint256 i; i < listings.length; ) {
@@ -149,7 +149,7 @@ contract KaliAccessManager is Multicall, SolmateERC1155 {
         uint8 v,
         bytes32 r,
         bytes32 s
-    ) external {
+    ) external payable {
         if (block.timestamp > deadline) revert SignatureExpired();
 
         address recoveredAddress = ecrecover(
@@ -193,7 +193,7 @@ contract KaliAccessManager is Multicall, SolmateERC1155 {
     /// Merkle Logic
     /// -----------------------------------------------------------------------
 
-    function setMerkleRoot(uint256 id, bytes32 merkleRoot) external {
+    function setMerkleRoot(uint256 id, bytes32 merkleRoot) external payable {
         if (msg.sender != operatorOf[id]) revert NotOperator();
 
         merkleRoots[id] = merkleRoot;
@@ -205,7 +205,7 @@ contract KaliAccessManager is Multicall, SolmateERC1155 {
         address account,
         uint256 id,
         bytes32[] calldata merkleProof
-    ) external {
+    ) external payable {
         if (balanceOf[account][id] != 0) revert ListClaimed();
         if (merkleRoots[id] == 0) revert InvalidList();
         if (!merkleProof.verify(merkleRoots[id], keccak256(abi.encodePacked(account)))) revert NotOnList();
