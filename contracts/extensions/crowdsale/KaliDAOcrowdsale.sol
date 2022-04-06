@@ -119,7 +119,7 @@ contract KaliDAOcrowdsale is KaliOwnable, Multicall, ReentrancyGuard {
     /// Sale Settings
     /// -----------------------------------------------------------------------
 
-    function setExtension(bytes calldata extensionData) external nonReentrant {
+    function setExtension(bytes calldata extensionData) external {
         (
             uint256 listId, 
             uint8 purchaseMultiplier,
