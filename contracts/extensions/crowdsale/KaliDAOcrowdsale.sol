@@ -46,6 +46,7 @@ contract KaliDAOcrowdsale is KaliOwnable, Multicall, ReentrancyGuard {
     error NotListed();
     error PurchaseLimit();
     error PersonalLimit();
+    error RateLimit();
 
     /// -----------------------------------------------------------------------
     /// Sale Storage
@@ -159,6 +160,7 @@ contract KaliDAOcrowdsale is KaliOwnable, Multicall, ReentrancyGuard {
             if (accessManager.balanceOf(msg.sender, sale.listId) == 0) revert NotListed();
 
         uint256 total;
+        uint256 payment;
 
         if (sale.purchaseAsset == address(0) || sale.purchaseAsset == address(0xDead)) {
             total = msg.value;
@@ -166,8 +168,16 @@ contract KaliDAOcrowdsale is KaliOwnable, Multicall, ReentrancyGuard {
             total = amount;
         }
 
-        uint256 fee = (total * kaliRate) / 100;
-        uint256 payment = total - fee;
+        if (kaliRate != 0) {
+            uint256 fee = (total * kaliRate) / 100;
+            // cannot underflow since fee will be less than total
+            unchecked { 
+                payment = total - fee;
+            }
+        } else {
+            payment = total;
+        }
+
         amountOut = total * sale.purchaseMultiplier;
 
         if (sale.purchaseTotal + amountOut > sale.purchaseLimit) revert PurchaseLimit();
@@ -199,6 +209,7 @@ contract KaliDAOcrowdsale is KaliOwnable, Multicall, ReentrancyGuard {
     /// -----------------------------------------------------------------------
 
     function setKaliRate(uint8 kaliRate_) external onlyOwner {
+        if (kaliRate_ > 100) revert RateLimit();
         kaliRate = kaliRate_;
         emit KaliRateSet(kaliRate_);
     }
