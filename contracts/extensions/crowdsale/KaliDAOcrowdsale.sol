@@ -34,9 +34,7 @@ contract KaliDAOcrowdsale is KaliOwnable, Multicall, ReentrancyGuard {
         uint96 personalLimit,
         string details
     );
-
     event KaliRateSet(uint8 kaliRate);
-
     event ExtensionCalled(address indexed dao, address indexed purchaser, uint256 amountOut);
 
     /// -----------------------------------------------------------------------
@@ -53,7 +51,7 @@ contract KaliDAOcrowdsale is KaliOwnable, Multicall, ReentrancyGuard {
     /// Sale Storage
     /// -----------------------------------------------------------------------
  
-    uint8 public kaliRate;
+    uint8 private kaliRate;
     IKaliAccessManager private immutable accessManager;
     address private immutable wETH;
 
@@ -178,17 +176,16 @@ contract KaliDAOcrowdsale is KaliOwnable, Multicall, ReentrancyGuard {
         if (sale.purchaseAsset == address(0)) {
             // send ETH to DAO
             dao._safeTransferETH(payment);
-
         } else if (sale.purchaseAsset == address(0xDead)) {
             // send ETH to wETH
             wETH._safeTransferETH(msg.value);
             // send wETH to DAO
             wETH._safeTransfer(dao, payment);
-
         } else {
             // send tokens to DAO
             sale.purchaseAsset._safeTransferFrom(msg.sender, dao, payment);
         }
+        
         sale.purchaseTotal += uint96(amountOut);
         sale.personalPurchased[msg.sender] += amountOut;
             
