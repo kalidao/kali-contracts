@@ -9,5 +9,5 @@ interface IKaliAccessManager {
         address account,
         uint256 id,
         bytes32[] calldata merkleProof
-    ) external;
+    ) external payable;
 }
