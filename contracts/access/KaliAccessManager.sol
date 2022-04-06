@@ -55,7 +55,7 @@ contract KaliAccessManager is Multicall, SolmateERC1155 {
 
     mapping(uint256 => address) public operatorOf;
     mapping(uint256 => bytes32) public merkleRoots;
-    mapping(uint256 => string) public uris;
+    mapping(uint256 => string) private uris;
 
     function uri(uint256 id) public override view returns (string memory) {
         return uris[id];
