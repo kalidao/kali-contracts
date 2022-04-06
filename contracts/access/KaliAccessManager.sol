@@ -42,9 +42,9 @@ contract KaliAccessManager is Multicall, SolmateERC1155 {
     /// EIP-712 Storage
     /// -----------------------------------------------------------------------
 
-    uint256 internal immutable INITIAL_CHAIN_ID;
-    bytes32 internal immutable INITIAL_DOMAIN_SEPARATOR;
-    bytes32 internal constant LIST_TYPEHASH =
+    uint256 private immutable INITIAL_CHAIN_ID;
+    bytes32 private immutable INITIAL_DOMAIN_SEPARATOR;
+    bytes32 private constant LIST_TYPEHASH =
         keccak256('List(address account,uint256 id,bool approved,uint256 deadline)');
 
     /// -----------------------------------------------------------------------
@@ -78,7 +78,7 @@ contract KaliAccessManager is Multicall, SolmateERC1155 {
         return block.chainid == INITIAL_CHAIN_ID ? INITIAL_DOMAIN_SEPARATOR : _computeDomainSeparator();
     }
 
-    function _computeDomainSeparator() internal view returns (bytes32) {
+    function _computeDomainSeparator() private view returns (bytes32) {
         return
             keccak256(
                 abi.encode(
@@ -171,7 +171,7 @@ contract KaliAccessManager is Multicall, SolmateERC1155 {
         address account,
         uint256 id,
         bool approved
-    ) internal {
+    ) private {
         approved ? _mint(account, id, 1, '') : _burn(account, id, 1);
     }
 
