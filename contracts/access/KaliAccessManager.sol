@@ -43,8 +43,6 @@ contract KaliAccessManager is Multicall, SolmateERC1155 {
 
     uint256 private immutable INITIAL_CHAIN_ID;
     bytes32 private immutable INITIAL_DOMAIN_SEPARATOR;
-    bytes32 private constant LIST_TYPEHASH =
-        keccak256('List(address account,uint256 id,bool approved,uint256 deadline)');
 
     /// -----------------------------------------------------------------------
     /// List Storage
