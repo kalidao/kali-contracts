@@ -545,7 +545,7 @@ interface IKaliDAOextension {
 }
 
 /// @notice Simple gas-optimized Kali DAO core module.
-contract KaliDAO is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
+contract KaliDAOv1 is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
     /*///////////////////////////////////////////////////////////////
                             EVENTS
     //////////////////////////////////////////////////////////////*/
@@ -1086,7 +1086,7 @@ interface IRicardianLLC {
 /// @notice Factory to deploy Kali DAO.
 contract KaliDAOfactory is Multicall {
     event DAOdeployed(
-        KaliDAO indexed kaliDAO, 
+        KaliDAOv1 indexed kaliDAO, 
         string name, 
         string symbol, 
         string docs, 
@@ -1120,8 +1120,8 @@ contract KaliDAOfactory is Multicall {
         address[] calldata voters_,
         uint256[] calldata shares_,
         uint32[16] memory govSettings_
-    ) public payable virtual returns (KaliDAO kaliDAO) {
-        kaliDAO = KaliDAO(_cloneAsMinimalProxy(kaliMaster, name_));
+    ) public payable virtual returns (KaliDAOv1 kaliDAO) {
+        kaliDAO = KaliDAOv1(_cloneAsMinimalProxy(kaliMaster, name_));
         
         kaliDAO.init(
             name_, 
