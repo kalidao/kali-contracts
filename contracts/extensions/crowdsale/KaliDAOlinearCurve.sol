@@ -1,5 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
-
+// SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.4;
 
 import '../../libraries/SafeTransferLib.sol';
@@ -82,7 +81,7 @@ contract KaliDAOlinearCurve is ReentrancyGuard {
         if (block.timestamp > sale.saleEnds) revert SaleEnded();
 
         if (sale.listId != 0) 
-            if (!accessManager.listedAccounts(sale.listId, account)) revert NotListed();
+            if (accessManager.balanceOf(msg.sender, sale.listId) == 0) revert NotListed();
         
         uint256 estPrice = estimatePrice(sale, amount);
 
