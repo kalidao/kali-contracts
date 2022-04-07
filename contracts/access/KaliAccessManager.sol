@@ -5,7 +5,7 @@ import {MerkleProof} from '../libraries/MerkleProof.sol';
 
 import {Multicall} from '../utils/Multicall.sol';
 
-import {ERC1155 as SolmateERC1155} from 'https://github.com/Rari-Capital/solmate/blob/main/src/tokens/ERC1155.sol';
+import {ERC1155 as SolmateERC1155} from '../tokens/erc1155/ERC1155.sol';
 
 /// @notice Kali DAO access manager
 contract KaliAccessManager is Multicall, SolmateERC1155 {
