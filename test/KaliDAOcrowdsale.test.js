@@ -73,13 +73,14 @@ describe("Crowdsale", function () {
 
         // Set up payload for extension proposal
         let payload = ethers.utils.defaultAbiCoder.encode(
-            ["uint256", "address", "uint8", "uint96", "uint32", "string"],
+            ["uint256", "uint8", "address", "uint32", "uint96", "uint96", "string"],
                 [
                     0,
-                    "0x0000000000000000000000000000000000000000",
                     2,
-                    getBigNumber(200),
+                    "0x0000000000000000000000000000000000000000",
                     1672174799,
+                    getBigNumber(200),
+                    getBigNumber(100),
                     "DOCS"
                 ]
         )
@@ -121,18 +122,20 @@ describe("Crowdsale", function () {
         // Set up whitelist
         await whitelist.createList(
             [proposer.address, alice.address],
-            "0x074b43252ffb4a469154df5fb7fe4ecce30953ba8b7095fe1e006185f017ad10"
+            "0x074b43252ffb4a469154df5fb7fe4ecce30953ba8b7095fe1e006185f017ad10",
+            "TEST_META"
         )
 
         // Set up payload for extension proposal
         let payload = ethers.utils.defaultAbiCoder.encode(
-            ["uint256", "address", "uint8", "uint96", "uint32", "string"],
+            ["uint256", "uint8", "address", "uint32", "uint96", "uint96", "string"],
                 [
                     1,
-                    "0x0000000000000000000000000000000000000000",
                     2,
-                    getBigNumber(200),
+                    "0x0000000000000000000000000000000000000000",
                     1672174799,
+                    getBigNumber(200),
+                    getBigNumber(100),
                     "DOCS"
                 ]
         )
@@ -174,18 +177,20 @@ describe("Crowdsale", function () {
         // Set up whitelist
         await whitelist.createList(
             [proposer.address],
-            "0x074b43252ffb4a469154df5fb7fe4ecce30953ba8b7095fe1e006185f017ad10"
+            "0x074b43252ffb4a469154df5fb7fe4ecce30953ba8b7095fe1e006185f017ad10",
+            "TEST_META"
         )
 
         // Set up payload for extension proposal
         let payload = ethers.utils.defaultAbiCoder.encode(
-            ["uint256", "address", "uint8", "uint96", "uint32", "string"],
+            ["uint256", "uint8", "address", "uint32", "uint96", "uint96", "string"],
                 [
                     1,
-                    "0x0000000000000000000000000000000000000000",
                     2,
-                    getBigNumber(200),
+                    "0x0000000000000000000000000000000000000000",
                     1672174799,
+                    getBigNumber(200),
+                    getBigNumber(100),
                     "DOCS"
                 ]
         )
@@ -210,7 +215,7 @@ describe("Crowdsale", function () {
         expect(await kali.balanceOf(alice.address)).to.equal(getBigNumber(0))
     })
 
-    it("Should enforce purchase limit in ETH crowdsale", async function () {
+    it("Should enforce personal purchase limit in ETH crowdsale", async function () {
         // Instantiate KaliDAO
         await kali.init(
           "KALI",
@@ -227,18 +232,20 @@ describe("Crowdsale", function () {
         // Set up whitelist
         await whitelist.createList(
             [proposer.address],
-            "0x074b43252ffb4a469154df5fb7fe4ecce30953ba8b7095fe1e006185f017ad10"
+            "0x074b43252ffb4a469154df5fb7fe4ecce30953ba8b7095fe1e006185f017ad10",
+            "TEST_META"
         )
 
         // Set up payload for extension proposal
         let payload = ethers.utils.defaultAbiCoder.encode(
-            ["uint256", "address", "uint8", "uint96", "uint32", "string"],
+            ["uint256", "uint8", "address", "uint32", "uint96", "uint96", "string"],
                 [
                     1,
-                    "0x0000000000000000000000000000000000000000",
                     2,
-                    getBigNumber(200),
+                    "0x0000000000000000000000000000000000000000",
                     1672174799,
+                    getBigNumber(1000),
+                    getBigNumber(100),
                     "DOCS"
                 ]
         )
@@ -251,18 +258,69 @@ describe("Crowdsale", function () {
             .callExtension(kali.address, getBigNumber(50), {
                 value: getBigNumber(50),
         })
-        await crowdsale 
-            .callExtension(kali.address, getBigNumber(50), {
-                value: getBigNumber(50),
-        })
         expect(await crowdsale 
             .callExtension(kali.address, getBigNumber(50), {
                 value: getBigNumber(50),
         }).should.be.reverted)
         expect(await ethers.provider.getBalance(kali.address)).to.equal(
-            getBigNumber(100)
+            getBigNumber(50)
         )
-        expect(await kali.balanceOf(proposer.address)).to.equal(getBigNumber(210))
+        expect(await kali.balanceOf(proposer.address)).to.equal(getBigNumber(110))
+    })
+
+    it("Should enforce total purchase limit in ETH crowdsale", async function () {
+        // Instantiate KaliDAO
+        await kali.init(
+          "KALI",
+          "KALI",
+          "DOCS",
+          false,
+          [],
+          [],
+          [proposer.address],
+          [getBigNumber(10)],
+          [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        )
+
+        // Set up whitelist
+        await whitelist.createList(
+            [proposer.address],
+            "0x074b43252ffb4a469154df5fb7fe4ecce30953ba8b7095fe1e006185f017ad10",
+            "TEST_META"
+        )
+
+        // Set up payload for extension proposal
+        let payload = ethers.utils.defaultAbiCoder.encode(
+            ["uint256", "uint8", "address", "uint32", "uint96", "uint96", "string"],
+                [
+                    1,
+                    2,
+                    "0x0000000000000000000000000000000000000000",
+                    1672174799,
+                    getBigNumber(150),
+                    getBigNumber(100),
+                    "DOCS"
+                ]
+        )
+
+        await kali.propose(9, "TEST", [crowdsale.address], [1], [payload])
+        await kali.vote(1, true)
+        await advanceTime(35)
+        await kali.processProposal(1)
+        await crowdsale 
+            .callExtension(kali.address, getBigNumber(50), {
+                value: getBigNumber(50),
+        })
+        expect(await crowdsale
+            .connect(alice) 
+            .callExtension(kali.address, getBigNumber(50), {
+                value: getBigNumber(50),
+        }).should.be.reverted)
+        expect(await ethers.provider.getBalance(kali.address)).to.equal(
+            getBigNumber(50)
+        )
+        expect(await kali.balanceOf(proposer.address)).to.equal(getBigNumber(110))
+        expect(await kali.balanceOf(alice.address)).to.equal(getBigNumber(0))
     })
 
     it("Should allow unrestricted ERC20 crowdsale", async function () {
@@ -283,13 +341,14 @@ describe("Crowdsale", function () {
 
         // Set up payload for extension proposal
         let payload = ethers.utils.defaultAbiCoder.encode(
-            ["uint256", "address", "uint8", "uint96", "uint32", "string"],
+            ["uint256", "uint8", "address", "uint32", "uint96", "uint96", "string"],
                 [
                     0,
-                    purchaseToken.address,
                     2,
-                    getBigNumber(200),
+                    purchaseToken.address,
                     1672174799,
+                    getBigNumber(200),
+                    getBigNumber(100),
                     "DOCS"
                 ]
         )
@@ -327,18 +386,20 @@ describe("Crowdsale", function () {
         // Set up whitelist
         await whitelist.createList(
             [proposer.address],
-            "0x074b43252ffb4a469154df5fb7fe4ecce30953ba8b7095fe1e006185f017ad10"
+            "0x074b43252ffb4a469154df5fb7fe4ecce30953ba8b7095fe1e006185f017ad10",
+            "TEST_META"
         )
 
         // Set up payload for extension proposal
         let payload = ethers.utils.defaultAbiCoder.encode(
-            ["uint256", "address", "uint8", "uint96", "uint32", "string"],
+            ["uint256", "uint8", "address", "uint32", "uint96", "uint96", "string"],
                 [
                     1,
-                    purchaseToken.address,
                     2,
-                    getBigNumber(200),
+                    purchaseToken.address,
                     1672174799,
+                    getBigNumber(200),
+                    getBigNumber(100),
                     "DOCS"
                 ]
         )
@@ -376,18 +437,20 @@ describe("Crowdsale", function () {
         // Set up whitelist
         await whitelist.createList(
             [alice.address],
-            "0x074b43252ffb4a469154df5fb7fe4ecce30953ba8b7095fe1e006185f017ad10"
+            "0x074b43252ffb4a469154df5fb7fe4ecce30953ba8b7095fe1e006185f017ad10",
+            "TEST_META"
         )
 
         // Set up payload for extension proposal
         let payload = ethers.utils.defaultAbiCoder.encode(
-            ["uint256", "address", "uint8", "uint96", "uint32", "string"],
+            ["uint256", "uint8", "address", "uint32", "uint96", "uint96", "string"],
                 [
                     1,
-                    purchaseToken.address,
                     2,
-                    getBigNumber(200),
+                    purchaseToken.address,
                     1672174799,
+                    getBigNumber(200),
+                    getBigNumber(100),
                     "DOCS"
                 ]
         )
@@ -406,7 +469,7 @@ describe("Crowdsale", function () {
         expect(await kali.balanceOf(proposer.address)).to.equal(getBigNumber(10))
     })
 
-    it("Should enforce purchase limit in ERC20 crowdsale", async function () {
+    it("Should enforce personal purchase limit in ERC20 crowdsale", async function () {
         // Instantiate KaliDAO
         await kali.init(
           "KALI",
@@ -425,18 +488,20 @@ describe("Crowdsale", function () {
         // Set up whitelist
         await whitelist.createList(
             [proposer.address],
-            "0x074b43252ffb4a469154df5fb7fe4ecce30953ba8b7095fe1e006185f017ad10"
+            "0x074b43252ffb4a469154df5fb7fe4ecce30953ba8b7095fe1e006185f017ad10",
+            "TEST_META"
         )
 
         // Set up payload for extension proposal
         let payload = ethers.utils.defaultAbiCoder.encode(
-            ["uint256", "address", "uint8", "uint96", "uint32", "string"],
+            ["uint256", "uint8", "address", "uint32", "uint96", "uint96", "string"],
                 [
                     1,
-                    purchaseToken.address,
                     2,
-                    getBigNumber(200),
+                    purchaseToken.address,
                     1672174799,
+                    getBigNumber(1000),
+                    getBigNumber(100),
                     "DOCS"
                 ]
         )
@@ -446,15 +511,67 @@ describe("Crowdsale", function () {
         await advanceTime(35)
         await kali.processProposal(1)
         await crowdsale.callExtension(kali.address, getBigNumber(50))
-        await crowdsale.callExtension(kali.address, getBigNumber(50))
         expect(await crowdsale.callExtension(kali.address, getBigNumber(50)).should.be.reverted)
         expect(await purchaseToken.balanceOf(proposer.address)).to.equal(
-            getBigNumber(900)
+            getBigNumber(950)
         )
         expect(await purchaseToken.balanceOf(kali.address)).to.equal(
-            getBigNumber(100)
+            getBigNumber(50)
         )
-        expect(await kali.balanceOf(proposer.address)).to.equal(getBigNumber(210))
+        expect(await kali.balanceOf(proposer.address)).to.equal(getBigNumber(110))
+    })
+
+    it("Should enforce total purchase limit in ERC20 crowdsale", async function () {
+        // Instantiate KaliDAO
+        await kali.init(
+          "KALI",
+          "KALI",
+          "DOCS",
+          false,
+          [],
+          [],
+          [proposer.address],
+          [getBigNumber(10)],
+          [30, 0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        )
+
+        await purchaseToken.approve(crowdsale.address, getBigNumber(500))
+
+        // Set up whitelist
+        await whitelist.createList(
+            [proposer.address],
+            "0x074b43252ffb4a469154df5fb7fe4ecce30953ba8b7095fe1e006185f017ad10",
+            "TEST_META"
+        )
+
+        // Set up payload for extension proposal
+        let payload = ethers.utils.defaultAbiCoder.encode(
+            ["uint256", "uint8", "address", "uint32", "uint96", "uint96", "string"],
+                [
+                    1,
+                    2,
+                    purchaseToken.address,
+                    1672174799,
+                    getBigNumber(150),
+                    getBigNumber(100),
+                    "DOCS"
+                ]
+        )
+
+        await kali.propose(9, "TEST", [crowdsale.address], [1], [payload])
+        await kali.vote(1, true)
+        await advanceTime(35)
+        await kali.processProposal(1)
+        await crowdsale.callExtension(kali.address, getBigNumber(50))
+        expect(await crowdsale.connect(alice.address).callExtension(kali.address, getBigNumber(50)).should.be.reverted)
+        expect(await purchaseToken.balanceOf(proposer.address)).to.equal(
+            getBigNumber(950)
+        )
+        expect(await purchaseToken.balanceOf(kali.address)).to.equal(
+            getBigNumber(50)
+        )
+        expect(await kali.balanceOf(proposer.address)).to.equal(getBigNumber(110))
+        expect(await kali.balanceOf(alice.address)).to.equal(getBigNumber(0))
     })
 
     it("Should enforce purchase time limit", async function () {
@@ -473,13 +590,14 @@ describe("Crowdsale", function () {
 
         // Set up payload for extension proposal
         let payload = ethers.utils.defaultAbiCoder.encode(
-            ["uint256", "address", "uint8", "uint96", "uint32", "string"],
+            ["uint256", "uint8", "address", "uint32", "uint96", "uint96", "string"],
                 [
                     0,
-                    "0x0000000000000000000000000000000000000000",
                     2,
-                    getBigNumber(200),
+                    "0x0000000000000000000000000000000000000000",
                     1672174799,
+                    getBigNumber(200),
+                    getBigNumber(100),
                     "DOCS"
                 ]
         )
@@ -496,5 +614,13 @@ describe("Crowdsale", function () {
         expect(await ethers.provider.getBalance(kali.address)).to.equal(
             getBigNumber(0)
         )
+    })
+
+    it("Should allow Kali fee to be set", async function () {  
+        await crowdsale.setKaliRate(5)
+    })
+
+    it("Should forbid non-owner from setting Kali fee", async function () {
+        expect(await crowdsale.connect(alice.address).setKaliRate(5).should.be.reverted)
     })
 })
