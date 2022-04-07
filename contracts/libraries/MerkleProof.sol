@@ -1,32 +1,35 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
-
+// SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.4;
 
-/// @notice Merkle library adapted from (https://github.com/miguelmota/merkletreejs[merkletreejs]).
+/// @notice Merkle library 
+/// @author Modified from (https://github.com/miguelmota/merkletreejs[merkletreejs])
+/// License-Identifier: MIT
 library MerkleProof {
     /// @dev Returns true if a `leaf` can be proved to be a part of a Merkle tree
-    /// defined by `root`. For this, a `proof` must be provided, containing
-    /// sibling hashes on the branch from the leaf to the root of the tree. Each
-    /// pair of leaves and each pair of pre-images are assumed to be sorted.
+    /// defined by `root` - for this, a `proof` must be provided, containing
+    /// sibling hashes on the branch from the leaf to the root of the tree - each
+    /// pair of leaves and each pair of pre-images are assumed to be sorted
     function verify(
-        bytes32[] memory proof,
+        bytes32[] calldata proof,
         bytes32 root,
         bytes32 leaf
     ) internal pure returns (bool) {
         bytes32 computedHash = leaf;
 
-        // cannot realistically overflow on human timescales
-        unchecked {
-            for (uint256 i = 0; i < proof.length; i++) {
-                bytes32 proofElement = proof[i];
+        for (uint256 i = 0; i < proof.length; ) {
+            bytes32 proofElement = proof[i];
 
-                if (computedHash <= proofElement) {
-                    // Hash(current computed hash + current element of the proof)
-                    computedHash = _efficientHash(computedHash, proofElement);
-                } else {
-                    // Hash(current element of the proof + current computed hash)
-                    computedHash = _efficientHash(proofElement, computedHash);
-                }
+            if (computedHash <= proofElement) {
+                // Hash(current computed hash + current element of the proof)
+                computedHash = _efficientHash(computedHash, proofElement);
+            } else {
+                // Hash(current element of the proof + current computed hash)
+                computedHash = _efficientHash(proofElement, computedHash);
+            }
+
+            // cannot realistically overflow on human timescales
+            unchecked {
+                ++i;
             }
         }
 

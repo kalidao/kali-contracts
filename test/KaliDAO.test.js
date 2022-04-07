@@ -31,7 +31,6 @@ describe("KaliDAO", function () {
     // console.log(kali.address)
     // console.log("alice eth balance", await alice.getBalance())
     // console.log("bob eth balance", await bob.getBalance())
-    
   })
 
   it("Should initialize with correct params", async function () {
@@ -1067,17 +1066,19 @@ describe("KaliDAO", function () {
     // Set up whitelist
     await kaliWhitelistManager.createList(
       [alice.address],
-      "0x074b43252ffb4a469154df5fb7fe4ecce30953ba8b7095fe1e006185f017ad10"
+      "0x074b43252ffb4a469154df5fb7fe4ecce30953ba8b7095fe1e006185f017ad10",
+      "TEST_META"
     )
     // Set up payload for extension proposal
     let payload = ethers.utils.defaultAbiCoder.encode(
-      ["uint256", "address", "uint8", "uint96", "uint32", "string"],
+      ["uint256", "uint8", "address", "uint32", "uint96", "uint96", "string"],
       [
         1,
-        "0x0000000000000000000000000000000000000000",
         2,
-        getBigNumber(100),
+        "0x0000000000000000000000000000000000000000",
         1672174799,
+        getBigNumber(1000),
+        getBigNumber(100),
         "DOCS"
       ]
     )
@@ -1138,12 +1139,21 @@ describe("KaliDAO", function () {
     // Set up whitelist
     await kaliWhitelistManager.createList(
       [alice.address],
-      "0x074b43252ffb4a469154df5fb7fe4ecce30953ba8b7095fe1e006185f017ad10"
+      "0x074b43252ffb4a469154df5fb7fe4ecce30953ba8b7095fe1e006185f017ad10",
+      "TEST_META"
     )
     // Set up payload for extension proposal
     let payload = ethers.utils.defaultAbiCoder.encode(
-      ["uint256", "address", "uint8", "uint96", "uint32", "string"],
-      [1, purchaseToken.address, 2, getBigNumber(100), 1672174799, "DOCS"]
+      ["uint256", "uint8", "address", "uint32", "uint96", "uint96", "string"],
+      [
+        1,
+        2,
+        purchaseToken.address,
+        1672174799,
+        getBigNumber(1000),
+        getBigNumber(100),
+        "DOCS"
+      ]
     )
     await kali.propose(9, "TEST", [kaliDAOcrowdsale.address], [1], [payload])
     await kali.vote(1, true)

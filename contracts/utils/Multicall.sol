@@ -8,7 +8,7 @@ abstract contract Multicall {
     function multicall(bytes[] calldata data) external returns (bytes[] memory results) {
         results = new bytes[](data.length);
         
-        for (uint256 i; i < data.length;) {
+        for (uint256 i; i < data.length; ) {
             (bool success, bytes memory result) = address(this).delegatecall(data[i]);
 
             if (!success) {

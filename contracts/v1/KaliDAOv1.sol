@@ -3,7 +3,7 @@
 pragma solidity >=0.8.4;
 
 /// @notice Modern and gas-optimized ERC-20 + EIP-2612 implementation with COMP-style governance and pausing.
-/// @author Modified from RariCapital (https://github.com/Rari-Capital/solmate/blob/main/src/erc20/ERC20.sol)
+/// @author Modified from Solmate (https://github.com/Rari-Capital/solmate/blob/main/src/erc20/ERC20.sol)
 /// License-Identifier: AGPL-3.0-only
 abstract contract KaliDAOtoken {
     /*///////////////////////////////////////////////////////////////
@@ -82,7 +82,7 @@ abstract contract KaliDAOtoken {
     bool public paused;
 
     bytes32 public constant DELEGATION_TYPEHASH = 
-        keccak256('Delegation(address delegatee,uint256 nonce,uint256 expiry)');
+        keccak256('Delegation(address delegatee,uint256 nonce,uint256 deadline)');
 
     mapping(address => address) internal _delegates;
 
@@ -130,7 +130,7 @@ abstract contract KaliDAOtoken {
                             ERC-20 LOGIC
     //////////////////////////////////////////////////////////////*/
 
-    function approve(address spender, uint256 amount) public virtual returns (bool) {
+    function approve(address spender, uint256 amount) public payable virtual returns (bool) {
         allowance[msg.sender][spender] = amount;
 
         emit Approval(msg.sender, spender, amount);
@@ -138,7 +138,7 @@ abstract contract KaliDAOtoken {
         return true;
     }
 
-    function transfer(address to, uint256 amount) public notPaused virtual returns (bool) {
+    function transfer(address to, uint256 amount) public payable notPaused virtual returns (bool) {
         balanceOf[msg.sender] -= amount;
 
         // cannot overflow because the sum of all user
@@ -158,7 +158,7 @@ abstract contract KaliDAOtoken {
         address from,
         address to,
         uint256 amount
-    ) public notPaused virtual returns (bool) {
+    ) public payable notPaused virtual returns (bool) {
         if (allowance[from][msg.sender] != type(uint256).max) 
             allowance[from][msg.sender] -= amount;
 
@@ -189,7 +189,7 @@ abstract contract KaliDAOtoken {
         uint8 v,
         bytes32 r,
         bytes32 s
-    ) public virtual {
+    ) public payable virtual {
         if (block.timestamp > deadline) revert SignatureExpired();
 
         // cannot realistically overflow on human timescales
@@ -254,7 +254,7 @@ abstract contract KaliDAOtoken {
         }
     }
 
-    function delegate(address delegatee) public virtual {
+    function delegate(address delegatee) public payable virtual {
         _delegate(msg.sender, delegatee);
     }
 
@@ -265,7 +265,7 @@ abstract contract KaliDAOtoken {
         uint8 v, 
         bytes32 r, 
         bytes32 s
-    ) public virtual {
+    ) public payable virtual {
         if (block.timestamp > deadline) revert SignatureExpired();
 
         bytes32 structHash = keccak256(abi.encode(DELEGATION_TYPEHASH, delegatee, nonce, deadline));
@@ -412,6 +412,17 @@ abstract contract KaliDAOtoken {
 
         emit Transfer(from, address(0), amount);
     }
+    
+    function burn(uint256 amount) public payable virtual {
+        _burn(msg.sender, amount);
+    }
+
+    function burnFrom(address from, uint256 amount) public payable virtual {
+        if (allowance[from][msg.sender] != type(uint256).max) 
+            allowance[from][msg.sender] -= amount;
+
+        _burn(from, amount);
+    }
 
     /*///////////////////////////////////////////////////////////////
                             PAUSE LOGIC
@@ -443,7 +454,7 @@ abstract contract KaliDAOtoken {
 /// @notice Helper utility that enables calling multiple local methods in a single call.
 /// @author Modified from Uniswap (https://github.com/Uniswap/v3-periphery/blob/main/contracts/base/Multicall.sol)
 abstract contract Multicall {
-    function multicall(bytes[] calldata data) public virtual returns (bytes[] memory results) {
+    function multicall(bytes[] calldata data) public payable virtual returns (bytes[] memory results) {
         results = new bytes[](data.length);
         
         // cannot realistically overflow on human timescales
@@ -534,12 +545,20 @@ interface IKaliDAOextension {
 }
 
 /// @notice Simple gas-optimized Kali DAO core module.
-contract KaliDAOflat is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
+contract KaliDAOv1 is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
     /*///////////////////////////////////////////////////////////////
                             EVENTS
     //////////////////////////////////////////////////////////////*/
 
-    event NewProposal(address indexed proposer, uint256 indexed proposal);
+    event NewProposal(
+        address indexed proposer, 
+        uint256 indexed proposal, 
+        ProposalType indexed proposalType, 
+        string description, 
+        address[] accounts, 
+        uint256[] amounts, 
+        bytes[] payloads
+    );
 
     event ProposalCancelled(address indexed proposer, uint256 indexed proposal);
 
@@ -555,11 +574,13 @@ contract KaliDAOflat is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
 
     error Initialized();
 
-    error VotingPeriodBounds();
+    error PeriodBounds();
 
     error QuorumMax();
 
     error SupermajorityBounds();
+
+    error InitCallFail();
 
     error TypeBounds();
 
@@ -593,9 +614,11 @@ contract KaliDAOflat is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
 
     uint32 public votingPeriod;
 
-    uint8 public quorum; // 1-100
+    uint32 public gracePeriod;
 
-    uint8 public supermajority; // 1-100
+    uint32 public quorum; // 1-100
+
+    uint32 public supermajority; // 1-100
     
     bytes32 public constant VOTE_HASH = 
         keccak256('SignVote(address signer,uint256 proposal,bool approve)');
@@ -616,7 +639,8 @@ contract KaliDAOflat is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
         MINT, // add membership
         BURN, // revoke membership
         CALL, // call contracts
-        PERIOD, // set `votingPeriod`
+        VPERIOD, // set `votingPeriod`
+        GPERIOD, // set `gracePeriod`
         QUORUM, // set `quorum`
         SUPERMAJORITY, // set `supermajority`
         TYPE, // set `VoteType` to `ProposalType`
@@ -664,18 +688,19 @@ contract KaliDAOflat is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
         bytes[] memory extensionsData_,
         address[] calldata voters_,
         uint256[] calldata shares_,
-        uint32 votingPeriod_,
-        uint8[13] memory govSettings_
+        uint32[16] memory govSettings_
     ) public payable nonReentrant virtual {
         if (extensions_.length != extensionsData_.length) revert NoArrayParity();
 
         if (votingPeriod != 0) revert Initialized();
 
-        if (votingPeriod_ == 0 || votingPeriod_ > 365 days) revert VotingPeriodBounds();
+        if (govSettings_[0] == 0 || govSettings_[0] > 365 days) revert PeriodBounds();
 
-        if (govSettings_[0] > 100) revert QuorumMax();
+        if (govSettings_[1] > 365 days) revert PeriodBounds();
 
-        if (govSettings_[1] <= 51 || govSettings_[1] > 100) revert SupermajorityBounds();
+        if (govSettings_[2] > 100) revert QuorumMax();
+
+        if (govSettings_[3] <= 51 || govSettings_[3] > 100) revert SupermajorityBounds();
 
         KaliDAOtoken._init(name_, symbol_, paused_, voters_, shares_);
 
@@ -685,42 +710,49 @@ contract KaliDAOflat is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
                 for (uint256 i; i < extensions_.length; i++) {
                     extensions[extensions_[i]] = true;
 
-                    if (extensionsData_[i].length != 0) IKaliDAOextension(extensions_[i])
-                        .setExtension(extensionsData_[i]);
+                    if (extensionsData_[i].length > 3) {
+                        (bool success, ) = extensions_[i].call(extensionsData_[i]);
+
+                        if (!success) revert InitCallFail();
+                    }
                 }
             }
         }
 
         docs = docs_;
         
-        votingPeriod = votingPeriod_;
+        votingPeriod = govSettings_[0];
+
+        gracePeriod = govSettings_[1];
         
-        quorum = govSettings_[0];
+        quorum = govSettings_[2];
         
-        supermajority = govSettings_[1];
+        supermajority = govSettings_[3];
 
         // set initial vote types
-        proposalVoteTypes[ProposalType.MINT] = VoteType(govSettings_[2]);
+        proposalVoteTypes[ProposalType.MINT] = VoteType(govSettings_[4]);
 
-        proposalVoteTypes[ProposalType.BURN] = VoteType(govSettings_[3]);
+        proposalVoteTypes[ProposalType.BURN] = VoteType(govSettings_[5]);
 
-        proposalVoteTypes[ProposalType.CALL] = VoteType(govSettings_[4]);
+        proposalVoteTypes[ProposalType.CALL] = VoteType(govSettings_[6]);
 
-        proposalVoteTypes[ProposalType.PERIOD] = VoteType(govSettings_[5]);
+        proposalVoteTypes[ProposalType.VPERIOD] = VoteType(govSettings_[7]);
+
+        proposalVoteTypes[ProposalType.GPERIOD] = VoteType(govSettings_[8]);
         
-        proposalVoteTypes[ProposalType.QUORUM] = VoteType(govSettings_[6]);
+        proposalVoteTypes[ProposalType.QUORUM] = VoteType(govSettings_[9]);
         
-        proposalVoteTypes[ProposalType.SUPERMAJORITY] = VoteType(govSettings_[7]);
+        proposalVoteTypes[ProposalType.SUPERMAJORITY] = VoteType(govSettings_[10]);
 
-        proposalVoteTypes[ProposalType.TYPE] = VoteType(govSettings_[8]);
+        proposalVoteTypes[ProposalType.TYPE] = VoteType(govSettings_[11]);
         
-        proposalVoteTypes[ProposalType.PAUSE] = VoteType(govSettings_[9]);
+        proposalVoteTypes[ProposalType.PAUSE] = VoteType(govSettings_[12]);
         
-        proposalVoteTypes[ProposalType.EXTENSION] = VoteType(govSettings_[10]);
+        proposalVoteTypes[ProposalType.EXTENSION] = VoteType(govSettings_[13]);
 
-        proposalVoteTypes[ProposalType.ESCAPE] = VoteType(govSettings_[11]);
+        proposalVoteTypes[ProposalType.ESCAPE] = VoteType(govSettings_[14]);
 
-        proposalVoteTypes[ProposalType.DOCS] = VoteType(govSettings_[12]);
+        proposalVoteTypes[ProposalType.DOCS] = VoteType(govSettings_[15]);
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -743,16 +775,18 @@ contract KaliDAOflat is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
         address[] calldata accounts,
         uint256[] calldata amounts,
         bytes[] calldata payloads
-    ) public nonReentrant virtual returns (uint256 proposal) {
+    ) public payable nonReentrant virtual returns (uint256 proposal) {
         if (accounts.length != amounts.length || amounts.length != payloads.length) revert NoArrayParity();
         
-        if (proposalType == ProposalType.PERIOD) if (amounts[0] == 0 || amounts[0] > 365 days) revert VotingPeriodBounds();
+        if (proposalType == ProposalType.VPERIOD) if (amounts[0] == 0 || amounts[0] > 365 days) revert PeriodBounds();
+
+        if (proposalType == ProposalType.GPERIOD) if (amounts[0] > 365 days) revert PeriodBounds();
         
         if (proposalType == ProposalType.QUORUM) if (amounts[0] > 100) revert QuorumMax();
         
         if (proposalType == ProposalType.SUPERMAJORITY) if (amounts[0] <= 51 || amounts[0] > 100) revert SupermajorityBounds();
 
-        if (proposalType == ProposalType.TYPE) if (amounts[0] > 10 || amounts[1] > 3 || amounts.length != 2) revert TypeBounds();
+        if (proposalType == ProposalType.TYPE) if (amounts[0] > 11 || amounts[1] > 3 || amounts.length != 2) revert TypeBounds();
 
         bool selfSponsor;
 
@@ -781,10 +815,10 @@ contract KaliDAOflat is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
 
         if (selfSponsor) currentSponsoredProposal = proposal;
 
-        emit NewProposal(msg.sender, proposal);
+        emit NewProposal(msg.sender, proposal, proposalType, description, accounts, amounts, payloads);
     }
 
-    function cancelProposal(uint256 proposal) public nonReentrant virtual {
+    function cancelProposal(uint256 proposal) public payable nonReentrant virtual {
         Proposal storage prop = proposals[proposal];
 
         if (msg.sender != prop.proposer) revert NotProposer();
@@ -796,7 +830,7 @@ contract KaliDAOflat is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
         emit ProposalCancelled(msg.sender, proposal);
     }
 
-    function sponsorProposal(uint256 proposal) public nonReentrant virtual {
+    function sponsorProposal(uint256 proposal) public payable nonReentrant virtual {
         Proposal storage prop = proposals[proposal];
 
         if (balanceOf[msg.sender] == 0) revert NotMember();
@@ -814,7 +848,7 @@ contract KaliDAOflat is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
         emit ProposalSponsored(msg.sender, proposal);
     } 
 
-    function vote(uint256 proposal, bool approve) public nonReentrant virtual {
+    function vote(uint256 proposal, bool approve) public payable nonReentrant virtual {
         _vote(msg.sender, proposal, approve);
     }
     
@@ -825,7 +859,7 @@ contract KaliDAOflat is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
         uint8 v, 
         bytes32 r, 
         bytes32 s
-    ) public nonReentrant virtual {
+    ) public payable nonReentrant virtual {
         bytes32 digest =
             keccak256(
                 abi.encodePacked(
@@ -844,7 +878,7 @@ contract KaliDAOflat is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
             
         address recoveredAddress = ecrecover(digest, v, r, s);
 
-        if (recoveredAddress != signer) revert InvalidSignature();
+        if (recoveredAddress == address(0) || recoveredAddress != signer) revert InvalidSignature();
         
         _vote(signer, proposal, approve);
     }
@@ -855,8 +889,6 @@ contract KaliDAOflat is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
         bool approve
     ) internal virtual {
         Proposal storage prop = proposals[proposal];
-
-        if (balanceOf[signer] == 0) revert NotMember();
 
         if (voted[proposal][signer]) revert AlreadyVoted();
         
@@ -885,7 +917,7 @@ contract KaliDAOflat is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
         emit VoteCast(signer, proposal, approve);
     }
 
-    function processProposal(uint256 proposal) public nonReentrant virtual returns (
+    function processProposal(uint256 proposal) public payable nonReentrant virtual returns (
         bool didProposalPass, bytes[] memory results
     ) {
         Proposal storage prop = proposals[proposal];
@@ -894,10 +926,10 @@ contract KaliDAOflat is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
 
         if (prop.creationTime == 0) revert NotCurrentProposal();
         
-        // this is safe from overflow because `votingPeriod` is capped so it will not combine
+        // this is safe from overflow because `votingPeriod` and `gracePeriod` are capped so they will not combine
         // with unix time to exceed the max uint256 value
         unchecked {
-            if (block.timestamp <= prop.creationTime + votingPeriod) revert VotingNotEnded();
+            if (block.timestamp <= prop.creationTime + votingPeriod + gracePeriod) revert VotingNotEnded();
         }
 
         // skip previous proposal processing requirement in case of escape hatch
@@ -930,14 +962,17 @@ contract KaliDAOflat is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
                     }
                     
                 // governance settings
-                if (prop.proposalType == ProposalType.PERIOD) 
+                if (prop.proposalType == ProposalType.VPERIOD) 
                     if (prop.amounts[0] != 0) votingPeriod = uint32(prop.amounts[0]);
                 
+                if (prop.proposalType == ProposalType.GPERIOD) 
+                    if (prop.amounts[0] != 0) gracePeriod = uint32(prop.amounts[0]);
+                
                 if (prop.proposalType == ProposalType.QUORUM) 
-                    if (prop.amounts[0] != 0) quorum = uint8(prop.amounts[0]);
+                    if (prop.amounts[0] != 0) quorum = uint32(prop.amounts[0]);
                 
                 if (prop.proposalType == ProposalType.SUPERMAJORITY) 
-                    if (prop.amounts[0] != 0) supermajority = uint8(prop.amounts[0]);
+                    if (prop.amounts[0] != 0) supermajority = uint32(prop.amounts[0]);
                 
                 if (prop.proposalType == ProposalType.TYPE) 
                     proposalVoteTypes[ProposalType(prop.amounts[0])] = VoteType(prop.amounts[1]);
@@ -950,7 +985,7 @@ contract KaliDAOflat is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
                         if (prop.amounts[i] != 0) 
                             extensions[prop.accounts[i]] = !extensions[prop.accounts[i]];
                     
-                        if (prop.payloads[i].length != 0) IKaliDAOextension(prop.accounts[i])
+                        if (prop.payloads[i].length > 3) IKaliDAOextension(prop.accounts[i])
                             .setExtension(prop.payloads[i]);
                     }
                 
@@ -1006,34 +1041,131 @@ contract KaliDAOflat is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
     }
     
     /*///////////////////////////////////////////////////////////////
-                            UTILITIES 
+                            EXTENSIONS 
     //////////////////////////////////////////////////////////////*/
-    
+
     receive() external payable virtual {}
-    
+
+    modifier onlyExtension {
+        if (!extensions[msg.sender]) revert NotExtension();
+
+        _;
+    }
+
     function callExtension(
         address extension, 
         uint256 amount, 
         bytes calldata extensionData
     ) public payable nonReentrant virtual returns (bool mint, uint256 amountOut) {
-        if (!extensions[extension] && !extensions[msg.sender]) revert NotExtension();
+        if (!extensions[extension]) revert NotExtension();
         
-        address account;
-
-        if (extensions[msg.sender]) {
-            account = extension;
-            amountOut = amount;
-            mint = abi.decode(extensionData, (bool));
-        } else {
-            account = msg.sender;
-            (mint, amountOut) = IKaliDAOextension(extension).callExtension{value: msg.value}
-                (msg.sender, amount, extensionData);
-        }
+        (mint, amountOut) = IKaliDAOextension(extension).callExtension{value: msg.value}
+            (msg.sender, amount, extensionData);
         
         if (mint) {
-            if (amountOut != 0) _mint(account, amountOut); 
+            if (amountOut != 0) _mint(msg.sender, amountOut); 
         } else {
-            if (amountOut != 0) _burn(account, amount);
+            if (amountOut != 0) _burn(msg.sender, amount);
         }
+    }
+
+    function mintShares(address to, uint256 amount) public payable onlyExtension virtual {
+        _mint(to, amount);
+    }
+
+    function burnShares(address from, uint256 amount) public payable onlyExtension virtual {
+        _burn(from, amount);
+    }
+}
+
+/// @notice Ricardian LLC formation interface.
+interface IRicardianLLC {
+    function mintLLC(address to) external payable;
+}
+
+/// @notice Factory to deploy Kali DAO.
+contract KaliDAOfactory is Multicall {
+    event DAOdeployed(
+        KaliDAOv1 indexed kaliDAO, 
+        string name, 
+        string symbol, 
+        string docs, 
+        bool paused, 
+        address[] extensions, 
+        bytes[] extensionsData,
+        address[] voters,
+        uint256[] shares,
+        uint32[16] govSettings
+    );
+
+    error NullDeploy();
+
+    address payable private immutable kaliMaster;
+
+    IRicardianLLC private immutable ricardianLLC;
+
+    constructor(address payable kaliMaster_, IRicardianLLC ricardianLLC_) {
+        kaliMaster = kaliMaster_;
+
+        ricardianLLC = ricardianLLC_;
+    }
+    
+    function deployKaliDAO(
+        string memory name_,
+        string memory symbol_,
+        string memory docs_,
+        bool paused_,
+        address[] memory extensions_,
+        bytes[] memory extensionsData_,
+        address[] calldata voters_,
+        uint256[] calldata shares_,
+        uint32[16] memory govSettings_
+    ) public payable virtual returns (KaliDAOv1 kaliDAO) {
+        kaliDAO = KaliDAOv1(_cloneAsMinimalProxy(kaliMaster, name_));
+        
+        kaliDAO.init(
+            name_, 
+            symbol_, 
+            docs_,
+            paused_, 
+            extensions_,
+            extensionsData_,
+            voters_, 
+            shares_,  
+            govSettings_
+        );
+
+        bytes memory docs = bytes(docs_);
+
+        if (docs.length == 0) {
+            ricardianLLC.mintLLC{value: msg.value}(address(kaliDAO));
+        }
+
+        emit DAOdeployed(kaliDAO, name_, symbol_, docs_, paused_, extensions_, extensionsData_, voters_, shares_, govSettings_);
+    }
+
+    /// @dev modified from Aelin (https://github.com/AelinXYZ/aelin/blob/main/contracts/MinimalProxyFactory.sol)
+    function _cloneAsMinimalProxy(address payable base, string memory name_) internal virtual returns (address payable clone) {
+        bytes memory createData = abi.encodePacked(
+            // constructor
+            bytes10(0x3d602d80600a3d3981f3),
+            // proxy code
+            bytes10(0x363d3d373d3d3d363d73),
+            base,
+            bytes15(0x5af43d82803e903d91602b57fd5bf3)
+        );
+
+        bytes32 salt = keccak256(bytes(name_));
+
+        assembly {
+            clone := create2(
+                0, // no value
+                add(createData, 0x20), // data
+                mload(createData),
+                salt
+            )
+        }
+        // if CREATE2 fails for some reason, address(0) is returned
+        if (clone == address(0)) revert NullDeploy();
     }
 }

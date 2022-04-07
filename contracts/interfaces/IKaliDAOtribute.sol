@@ -1,8 +1,7 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
-
+// SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.4;
 
-/// @notice Kali DAO tribute escrow interface.
+/// @notice Kali DAO tribute escrow interface
 interface IKaliDAOtribute {
     enum ProposalType {
         MINT, 
@@ -32,9 +31,9 @@ interface IKaliDAOtribute {
         address[] calldata accounts,
         uint256[] calldata amounts,
         bytes[] calldata payloads
-    ) external returns (uint256 proposal);
+    ) external payable returns (uint256 proposal);
 
-    function cancelProposal(uint256 proposal) external;
+    function cancelProposal(uint256 proposal) external payable;
 
-    function processProposal(uint256 proposal) external returns (bool didProposalPass, bytes[] memory results);
+    function processProposal(uint256 proposal) external payable returns (bool didProposalPass, bytes[] memory results);
 }

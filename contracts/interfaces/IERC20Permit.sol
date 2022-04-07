@@ -1,8 +1,7 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
-
+// SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.4;
 
-/// @notice EIP-2612 interface.
+/// @notice EIP-2612 interface
 interface IERC20Permit {
     function permit(
         address owner, 
