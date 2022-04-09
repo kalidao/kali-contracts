@@ -2,6 +2,16 @@
 
 > programmable structures for web3 companies and funds
 
+## Get Started
+
+`git clone https://github.com/kalidao/kali-contracts` 
+
+`cd kali-contracts`
+
+`yarn`
+
+`npx hardhat test`
+
 ```ml
 ├─ KaliDAOfactory — "Deploys new Kali DAO with event and return of address"
 │  ├─ KaliDAO — "DAO core module with Comp-style token voting and adjustment of membership, low-level calls on quorum/supermajority"
