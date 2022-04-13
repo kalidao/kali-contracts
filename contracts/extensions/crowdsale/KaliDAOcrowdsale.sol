@@ -26,6 +26,7 @@ contract KaliDAOcrowdsale is KaliOwnable, Multicall, ReentrancyGuard {
 
     event ExtensionSet(
         address indexed dao, 
+        uint256 index,
         uint256 listId, 
         uint8 purchaseMultiplier, 
         address purchaseAsset, 
@@ -35,7 +36,7 @@ contract KaliDAOcrowdsale is KaliOwnable, Multicall, ReentrancyGuard {
         string details
     );
     event KaliRateSet(uint8 kaliRate);
-    event ExtensionCalled(address indexed dao, address indexed purchaser, uint256 amountOut);
+    event ExtensionCalled(address indexed dao, uint256 index, address indexed purchaser, uint256 amountOut);
 
     /// -----------------------------------------------------------------------
     /// Errors
@@ -51,12 +52,14 @@ contract KaliDAOcrowdsale is KaliOwnable, Multicall, ReentrancyGuard {
     /// -----------------------------------------------------------------------
     /// Sale Storage
     /// -----------------------------------------------------------------------
- 
+    
     uint8 private kaliRate;
     IKaliAccessManager private immutable accessManager;
     address private immutable wETH;
+    uint256 private counter;
 
     mapping(address => Crowdsale) public crowdsales;
+    mapping(uint256 => address) public saleIndex;
 
     struct Crowdsale {
         uint256 listId;
@@ -143,15 +146,21 @@ contract KaliDAOcrowdsale is KaliOwnable, Multicall, ReentrancyGuard {
         sale.purchaseLimit = purchaseLimit;
         sale.personalLimit = personalLimit;
         sale.details = details;
-
-        emit ExtensionSet(msg.sender, listId, purchaseMultiplier, purchaseAsset, saleEnds, purchaseLimit, personalLimit, details);
+        
+        // cannot realistically overflow on human timescales
+        unchecked {
+            uint256 index = counter++;
+            saleIndex[index] = msg.sender;
+            emit ExtensionSet(msg.sender, index, listId, purchaseMultiplier, purchaseAsset, saleEnds, purchaseLimit, personalLimit, details);
+        }
     }
 
     /// -----------------------------------------------------------------------
     /// Sale Logic
     /// -----------------------------------------------------------------------
 
-    function callExtension(address dao, uint256 amount) external payable nonReentrant returns (uint256 amountOut) {
+    function callExtension(uint256 index, uint256 amount) external payable nonReentrant returns (uint256 amountOut) {
+        address dao = saleIndex[index];
         Crowdsale storage sale = crowdsales[dao];
 
         if (block.timestamp > sale.saleEnds) revert SaleEnded();
@@ -201,7 +210,7 @@ contract KaliDAOcrowdsale is KaliOwnable, Multicall, ReentrancyGuard {
             
         IKaliShareManager(dao).mintShares(msg.sender, amountOut);
 
-        emit ExtensionCalled(dao, msg.sender, amountOut);
+        emit ExtensionCalled(dao, index, msg.sender, amountOut);
     }
 
     /// -----------------------------------------------------------------------
