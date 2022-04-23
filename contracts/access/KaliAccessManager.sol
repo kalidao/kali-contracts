@@ -121,10 +121,12 @@ contract KaliAccessManager is Multicall, SolmateERC1155 {
             merkleRoots[id] = merkleRoot;
             emit MerkleRootSet(id, merkleRoot);
         }
-
-        uris[id] = metadata;
         
-        emit URI(metadata, id);
+        if (bytes(metadata).length != 0) {
+            uris[id] = metadata;
+            emit URI(metadata, id);
+        }
+        
         emit ListCreated(msg.sender, id);
     }
 
