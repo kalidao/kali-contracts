@@ -2,13 +2,14 @@
 pragma solidity >=0.8.4;
 
 import {MerkleProof} from '../libraries/MerkleProof.sol';
+import {SVG} from '../libraries/SVG.sol';
 
 import {Multicall} from '../utils/Multicall.sol';
 
-import {ERC1155 as SolmateERC1155} from '../tokens/erc1155/ERC1155.sol';
+import {NTERC1155 as Token} from '../tokens/erc1155/NTERC1155.sol';
 
 /// @notice Kali DAO access manager
-contract KaliAccessManager is Multicall, SolmateERC1155 {
+contract KaliAccessManager is Multicall, Token {
     /// -----------------------------------------------------------------------
     /// Library Usage
     /// -----------------------------------------------------------------------
@@ -55,10 +56,73 @@ contract KaliAccessManager is Multicall, SolmateERC1155 {
         bool approval;
     }
 
-    function uri(uint256 id) public override view returns (string memory) {
-        return uris[id];
+    function uri(uint256 id) public view override returns (string memory) {
+        string memory metadata = uris[id];
+        if (bytes(uris[id]).length == 0) {
+            return _buildURI(id);
+        } else {
+            return uris[id];
+        }
     }
-
+    
+    function _buildURI(uint256 id) private pure returns (string memory) {
+        return
+            string.concat(
+                '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" style="background:#000">',
+                SVG.text(
+                    string.concat(
+                        SVG.prop('x', '20'),
+                        SVG.prop('y', '40'),
+                        SVG.prop('font-size', '22'),
+                        SVG.prop('fill', 'white')
+                    ),
+                    string.concat(
+                        SVG.cdata('Access List #'),
+                        SVG.uint2str(_tokenId)
+                    )
+                ),
+                SVG.rect(
+                    string.concat(
+                        SVG.prop('fill', 'maroon'),
+                        SVG.prop('x', '20'),
+                        SVG.prop('y', '50'),
+                        SVG.prop('width', SVG.uint2str(160)),
+                        SVG.prop('height', SVG.uint2str(10))
+                    ),
+                    SVG.NULL
+                ),
+                SVG.text(
+                    string.concat(
+                        SVG.prop('x', '20'),
+                        SVG.prop('y', '90'),
+                        SVG.prop('font-size', '12'),
+                        SVG.prop('fill', 'white')
+                    ),
+                    string.concat(
+                        SVG.cdata('The holder of this token can enjoy')
+                    )
+                ),
+                SVG.text(
+                    string.concat(
+                        SVG.prop('x', '20'),
+                        SVG.prop('y', '110'),
+                        SVG.prop('font-size', '12'),
+                        SVG.prop('fill', 'white')
+                    ),
+                    string.concat(SVG.cdata('access to restricted functions.'))
+                ),
+                SVG.image(
+                    'https://gateway.pinata.cloud/ipfs/QmbD6Qh1oVMXfvGG4PnBJKW4GrDh2Rim9pqMSDG8UotisV', 
+                    string.concat(
+                        SVG.prop('x', '215'),
+                        SVG.prop('y', '220'),
+                        SVG.prop('width', '80')
+                    )
+                ),
+                '</svg>'
+            );
+    }
+        
     /// -----------------------------------------------------------------------
     /// Constructor
     /// -----------------------------------------------------------------------
@@ -105,10 +169,8 @@ contract KaliAccessManager is Multicall, SolmateERC1155 {
 
         operatorOf[id] = msg.sender;
 
-        uint256 length = accounts.length;
-
-        if (length != 0) {
-            for (uint256 i; i < length; ) {
+        if (accounts.length != 0) {
+            for (uint256 i; i < accounts.length; ) {
                 _listAccount(accounts[i], id, true);
                 // cannot realistically overflow on human timescales
                 unchecked {
