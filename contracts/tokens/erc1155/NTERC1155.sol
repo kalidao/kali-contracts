@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.4;
 
-/// @notice Minimalist and gas efficient standard ERC1155 implementation.
+/// @notice Non-transferable multi-token based on ERC-1155
 /// @author Modified from Solmate (https://github.com/Rari-Capital/solmate/blob/main/src/tokens/ERC1155.sol)
-abstract contract ERC1155 {
+/// License-Identifier AGPL-3.0-only
+abstract contract NTERC1155 {
     /*//////////////////////////////////////////////////////////////
                                  EVENTS
     //////////////////////////////////////////////////////////////*/
@@ -16,16 +17,6 @@ abstract contract ERC1155 {
         uint256 amount
     );
 
-    event TransferBatch(
-        address indexed operator,
-        address indexed from,
-        address indexed to,
-        uint256[] ids,
-        uint256[] amounts
-    );
-
-    event ApprovalForAll(address indexed owner, address indexed operator, bool approved);
-
     event URI(string value, uint256 indexed id);
 
     /*//////////////////////////////////////////////////////////////
@@ -33,8 +24,6 @@ abstract contract ERC1155 {
     //////////////////////////////////////////////////////////////*/
 
     mapping(address => mapping(uint256 => uint256)) public balanceOf;
-
-    mapping(address => mapping(address => bool)) public isApprovedForAll;
 
     /*//////////////////////////////////////////////////////////////
                              METADATA LOGIC
@@ -45,12 +34,6 @@ abstract contract ERC1155 {
     /*//////////////////////////////////////////////////////////////
                               ERC1155 LOGIC
     //////////////////////////////////////////////////////////////*/
-
-    function setApprovalForAll(address operator, bool approved) public virtual {
-        isApprovedForAll[msg.sender][operator] = approved;
-
-        emit ApprovalForAll(msg.sender, operator, approved);
-    }
 
     function balanceOfBatch(address[] calldata owners, uint256[] calldata ids)
         public
@@ -77,9 +60,9 @@ abstract contract ERC1155 {
 
     function supportsInterface(bytes4 interfaceId) public view virtual returns (bool) {
         return
-            interfaceId == 0x01ffc9a7 || // ERC165 Interface ID for ERC165
-            interfaceId == 0xd9b67a26 || // ERC165 Interface ID for ERC1155
-            interfaceId == 0x0e89341c; // ERC165 Interface ID for ERC1155MetadataURI
+            interfaceId == 0x01ffc9a7 || // ERC-165 Interface ID for ERC-165
+            interfaceId == 0xd9b67a26 || // ERC-165 Interface ID for ERC-1155
+            interfaceId == 0x0e89341c; // ERC-165 Interface ID for ERC1155MetadataURI
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -105,61 +88,6 @@ abstract contract ERC1155 {
         );
     }
 
-    function _batchMint(
-        address to,
-        uint256[] memory ids,
-        uint256[] memory amounts,
-        bytes memory data
-    ) internal virtual {
-        uint256 idsLength = ids.length; // Saves MLOADs.
-
-        require(idsLength == amounts.length, "LENGTH_MISMATCH");
-        
-        mapping(uint256 => uint256) storage toBalances = balanceOf[to];
-        for (uint256 i = 0; i < idsLength; ) {
-            toBalances[ids[i]] += amounts[i];
-
-            // An array can't have a total length
-            // larger than the max uint256 value.
-            unchecked {
-                ++i;
-            }
-        }
-
-        emit TransferBatch(msg.sender, address(0), to, ids, amounts);
-
-        require(
-            to.code.length == 0
-                ? to != address(0)
-                : ERC1155TokenReceiver(to).onERC1155BatchReceived(msg.sender, address(0), ids, amounts, data) ==
-                    ERC1155TokenReceiver.onERC1155BatchReceived.selector,
-            "UNSAFE_RECIPIENT"
-        );
-    }
-
-    function _batchBurn(
-        address from,
-        uint256[] memory ids,
-        uint256[] memory amounts
-    ) internal virtual {
-        uint256 idsLength = ids.length; // Saves MLOADs.
-
-        require(idsLength == amounts.length, "LENGTH_MISMATCH");
-
-        mapping(uint256 => uint256) storage fromBalances = balanceOf[from];
-        for (uint256 i = 0; i < idsLength; ) {
-            fromBalances[ids[i]] -= amounts[i];
-
-            // An array can't have a total length
-            // larger than the max uint256 value.
-            unchecked {
-                ++i;
-            }
-        }
-
-        emit TransferBatch(msg.sender, from, address(0), ids, amounts);
-    }
-
     function _burn(
         address from,
         uint256 id,
@@ -171,8 +99,9 @@ abstract contract ERC1155 {
     }
 }
 
-/// @notice A generic interface for a contract which properly accepts ERC1155 tokens.
+/// @notice A generic interface for a contract which properly accepts ERC1155 tokens
 /// @author Solmate (https://github.com/Rari-Capital/solmate/blob/main/src/tokens/ERC1155.sol)
+/// License-Identifier AGPL-3.0-only
 abstract contract ERC1155TokenReceiver {
     function onERC1155Received(
         address,
@@ -182,15 +111,5 @@ abstract contract ERC1155TokenReceiver {
         bytes calldata
     ) external virtual returns (bytes4) {
         return ERC1155TokenReceiver.onERC1155Received.selector;
-    }
-
-    function onERC1155BatchReceived(
-        address,
-        address,
-        uint256[] calldata,
-        uint256[] calldata,
-        bytes calldata
-    ) external virtual returns (bytes4) {
-        return ERC1155TokenReceiver.onERC1155BatchReceived.selector;
     }
 }
