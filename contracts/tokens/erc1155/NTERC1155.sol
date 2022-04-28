@@ -99,7 +99,7 @@ abstract contract NTERC1155 {
     }
 }
 
-/// @notice A generic interface for a contract which properly accepts ERC1155 tokens
+/// @notice A generic interface for a contract which properly accepts ERC-1155 tokens
 /// @author Solmate (https://github.com/Rari-Capital/solmate/blob/main/src/tokens/ERC1155.sol)
 /// License-Identifier AGPL-3.0-only
 abstract contract ERC1155TokenReceiver {
