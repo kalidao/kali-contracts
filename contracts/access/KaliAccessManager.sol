@@ -6,10 +6,10 @@ import {SVG} from '../libraries/SVG.sol';
 
 import {Multicall} from '../utils/Multicall.sol';
 
-import {NTERC1155 as Token} from '../tokens/erc1155/NTERC1155.sol';
+import {NTERC1155} from '../tokens/erc1155/NTERC1155.sol';
 
 /// @notice Kali DAO access manager
-contract KaliAccessManager is Multicall, Token {
+contract KaliAccessManager is Multicall, NTERC1155 {
     /// -----------------------------------------------------------------------
     /// Library Usage
     /// -----------------------------------------------------------------------
@@ -47,6 +47,9 @@ contract KaliAccessManager is Multicall, Token {
 
     uint256 public listCount;
 
+    string public constant name = "Access";
+    string public constant symbol = "AXS";
+
     mapping(uint256 => address) public operatorOf;
     mapping(uint256 => bytes32) public merkleRoots;
     mapping(uint256 => string) private uris;
@@ -57,7 +60,6 @@ contract KaliAccessManager is Multicall, Token {
     }
 
     function uri(uint256 id) public view override returns (string memory) {
-        string memory metadata = uris[id];
         if (bytes(uris[id]).length == 0) {
             return _buildURI(id);
         } else {
@@ -78,7 +80,7 @@ contract KaliAccessManager is Multicall, Token {
                     ),
                     string.concat(
                         SVG.cdata('Access List #'),
-                        SVG.uint2str(_tokenId)
+                        SVG.uint2str(id)
                     )
                 ),
                 SVG.rect(
@@ -179,7 +181,7 @@ contract KaliAccessManager is Multicall, Token {
             }
         }
 
-        if (merkleRoot != '') {
+        if (merkleRoot != 0) {
             merkleRoots[id] = merkleRoot;
             emit MerkleRootSet(id, merkleRoot);
         }
