@@ -16,7 +16,7 @@ library MerkleProof {
     ) internal pure returns (bool) {
         bytes32 computedHash = leaf;
 
-        for (uint256 i = 0; i < proof.length; ) {
+        for (uint256 i; i < proof.length; ) {
             bytes32 proofElement = proof[i];
 
             if (computedHash <= proofElement) {
@@ -26,18 +26,16 @@ library MerkleProof {
                 // Hash(current element of the proof + current computed hash)
                 computedHash = _efficientHash(proofElement, computedHash);
             }
-
             // cannot realistically overflow on human timescales
             unchecked {
                 ++i;
             }
         }
-
         // check if the computed hash (root) is equal to the provided root
         return computedHash == root;
     }
 
-    function _efficientHash(bytes32 a, bytes32 b) internal pure returns (bytes32 value) {
+    function _efficientHash(bytes32 a, bytes32 b) private pure returns (bytes32 value) {
         assembly {
             mstore(0x00, a)
             mstore(0x20, b)
