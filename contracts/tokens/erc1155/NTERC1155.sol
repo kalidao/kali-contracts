@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity >=0.8.0;
+pragma solidity >=0.8.4;
 
 /// @notice Minimalist and gas efficient standard ERC1155 implementation.
-/// @author Solmate (https://github.com/Rari-Capital/solmate/blob/main/src/tokens/ERC1155.sol)
+/// @author Modified from Solmate (https://github.com/Rari-Capital/solmate/blob/main/src/tokens/ERC1155.sol)
 abstract contract ERC1155 {
     /*//////////////////////////////////////////////////////////////
                                  EVENTS
@@ -50,71 +50,6 @@ abstract contract ERC1155 {
         isApprovedForAll[msg.sender][operator] = approved;
 
         emit ApprovalForAll(msg.sender, operator, approved);
-    }
-
-    function safeTransferFrom(
-        address from,
-        address to,
-        uint256 id,
-        uint256 amount,
-        bytes calldata data
-    ) public virtual {
-        require(msg.sender == from || isApprovedForAll[from][msg.sender], "NOT_AUTHORIZED");
-
-        balanceOf[from][id] -= amount;
-        balanceOf[to][id] += amount;
-
-        emit TransferSingle(msg.sender, from, to, id, amount);
-
-        require(
-            to.code.length == 0
-                ? to != address(0)
-                : ERC1155TokenReceiver(to).onERC1155Received(msg.sender, from, id, amount, data) ==
-                    ERC1155TokenReceiver.onERC1155Received.selector,
-            "UNSAFE_RECIPIENT"
-        );
-    }
-
-    function safeBatchTransferFrom(
-        address from,
-        address to,
-        uint256[] calldata ids,
-        uint256[] calldata amounts,
-        bytes calldata data
-    ) public virtual {
-        require(ids.length == amounts.length, "LENGTH_MISMATCH");
-
-        require(msg.sender == from || isApprovedForAll[from][msg.sender], "NOT_AUTHORIZED");
-
-        // Storing these outside the loop saves ~15 gas per iteration.
-        uint256 id;
-        uint256 amount;
-
-        mapping(uint256 => uint256) storage fromBalances = balanceOf[from];
-        mapping(uint256 => uint256) storage toBalances = balanceOf[to];
-        for (uint256 i = 0; i < ids.length; ) {
-            id = ids[i];
-            amount = amounts[i];
-
-            fromBalances[id] -= amount;
-            toBalances[id] += amount;
-
-            // An array can't have a total length
-            // larger than the max uint256 value.
-            unchecked {
-                ++i;
-            }
-        }
-
-        emit TransferBatch(msg.sender, from, to, ids, amounts);
-
-        require(
-            to.code.length == 0
-                ? to != address(0)
-                : ERC1155TokenReceiver(to).onERC1155BatchReceived(msg.sender, from, ids, amounts, data) ==
-                    ERC1155TokenReceiver.onERC1155BatchReceived.selector,
-            "UNSAFE_RECIPIENT"
-        );
     }
 
     function balanceOfBatch(address[] calldata owners, uint256[] calldata ids)
