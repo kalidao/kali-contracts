@@ -6,7 +6,7 @@ pragma solidity >=0.8.4;
 /// (https://github.com/boringcrypto/BoringSolidity/blob/master/contracts/libraries/Base64.sol)
 /// License-Identifier: MIT
 library Base64 {
-    function encode(bytes memory data) internal pure returns (string memory) {
+    function _encode(bytes memory data) internal pure returns (string memory) {
         if (data.length == 0) return '';
         // load the table into memory
         string memory table = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
