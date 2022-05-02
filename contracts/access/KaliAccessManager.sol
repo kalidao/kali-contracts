@@ -3,6 +3,8 @@ pragma solidity >=0.8.4;
 
 import {MerkleProof} from '../libraries/MerkleProof.sol';
 import {SVG} from '../libraries/SVG.sol';
+import {Utils} from '../libraries/Utils.sol';
+import {JSON} from '../libraries/JSON.sol';
 
 import {Multicall} from '../utils/Multicall.sol';
 
@@ -69,7 +71,10 @@ contract KaliAccessManager is Multicall, NTERC1155 {
     
     function _buildURI(uint256 id) private pure returns (string memory) {
         return
-            string.concat(
+            JSON.formattedMetadata(
+                string.concat('Access #', Utils.uint2str(id)), 
+                'Kali Access Manager', 
+                string.concat(
                 '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" style="background:#000">',
                 SVG.text(
                     string.concat(
@@ -122,7 +127,8 @@ contract KaliAccessManager is Multicall, NTERC1155 {
                     )
                 ),
                 '</svg>'
-            );
+            )
+        );
     }
         
     /// -----------------------------------------------------------------------
