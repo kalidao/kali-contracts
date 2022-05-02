@@ -4,14 +4,15 @@
   "description": "Smart Contracts for KaliDAO ",
   "main": "index.js",
   "scripts": {
-    "test": "npx hardhat test"
+    "build": "hardhat compile",
+    "test": "hardhat test"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/kalidao/kali-contracts.git"
   },
   "author": "Robert Campbell",
-  "license": "GNU",
+  "license": "AGPL-3.0-only",
   "bugs": {
     "url": "https://github.com/kalidao/kali-contracts/issues"
   },
