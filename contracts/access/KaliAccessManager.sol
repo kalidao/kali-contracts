@@ -75,7 +75,7 @@ contract KaliAccessManager is Multicall, NTERC1155 {
                 string.concat('Access #', Utils.uint2str(id)), 
                 'Kali Access Manager', 
                 string.concat(
-                '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" style="background:#000">',
+                '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" style="background:#191919">',
                 SVG.text(
                     string.concat(
                         SVG.prop('x', '20'),
@@ -119,7 +119,7 @@ contract KaliAccessManager is Multicall, NTERC1155 {
                     string.concat(SVG.cdata('access to restricted functions.'))
                 ),
                 SVG.image(
-                    'https://gateway.pinata.cloud/ipfs/QmbD6Qh1oVMXfvGG4PnBJKW4GrDh2Rim9pqMSDG8UotisV', 
+                    'https://gateway.pinata.cloud/ipfs/Qmb2AWDjE8GNUob83FnZfuXLj9kSs2uvU9xnoCbmXhH7A1', 
                     string.concat(
                         SVG.prop('x', '215'),
                         SVG.prop('y', '220'),
