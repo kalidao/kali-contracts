@@ -5,15 +5,10 @@ pragma solidity >=0.8.4;
 /// @author Modified from (https://github.com/ColinPlatt/libSVG/blob/main/src/Utils.sol)
 /// License-Identifier: MIT
 library JSON {
-    
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    /// @dev JSON requires that double quotes be escaped or JSONs will not build correctly
-    /// string.concat also requires an escape, use \\" or the constant DOUBLE_QUOTES to represent " in JSON
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// @dev Base64 encoding/decoding table 
+    string internal constant TABLE = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
-    string constant DOUBLE_QUOTES = '\\"';
-
-    function formattedMetadata(
+    function _formattedMetadata(
         string memory name,
         string memory description,
         string memory svgImg
@@ -23,21 +18,21 @@ library JSON {
     {
         return string.concat(
             'data:application/json;base64,',
-            encode(
+            _encode(
                 bytes(
-                    string.concat(
-                    '{',
-                    _prop('name', name),
-                    _prop('description', description),
-                    _xmlImage(svgImg),
-                    '}'
-                    )
+                        string.concat(
+                            '{',
+                            _prop('name', name),
+                            _prop('description', description),
+                            _xmlImage(svgImg),
+                            '}'
+                        )
                 )
             )
         );
     }
     
-    function _xmlImage(string memory _svgImg)
+    function _xmlImage(string memory svgImg)
         internal
         pure
         returns (string memory) 
@@ -46,59 +41,49 @@ library JSON {
                         'image',
                         string.concat(
                             'data:image/svg+xml;base64,',
-                            encode(bytes(_svgImg))
+                            _encode(bytes(svgImg))
                         ),
                         true
-        );
+                );
     }
 
-    function _prop(string memory _key, string memory _val)
+    function _prop(string memory key, string memory val)
         internal
         pure
         returns (string memory)
     {
-        return string.concat('"', _key, '": ', '"', _val, '", ');
+        return string.concat('"', key, '": ', '"', val, '", ');
     }
 
-    function _prop(string memory _key, string memory _val, bool last)
+    function _prop(string memory key, string memory val, bool last)
         internal
         pure
         returns (string memory)
     {
-        if(last) {
-            return string.concat('"', _key, '": ', '"', _val, '"');
+        if (last) {
+            return string.concat('"', key, '": ', '"', val, '"');
         } else {
-            return string.concat('"', _key, '": ', '"', _val, '", ');
+            return string.concat('"', key, '": ', '"', val, '", ');
         }
         
     }
 
-    function _object(string memory _key, string memory _val)
+    function _object(string memory key, string memory val)
         internal
         pure
         returns (string memory)
     {
-        return string.concat('"', _key, '": ', '{', _val, '}');
+        return string.concat('"', key, '": ', '{', val, '}');
     }
-     
-     /**
-     * taken from Openzeppelin
-     * @dev Base64 Encoding/Decoding Table
-     */
-    string internal constant _TABLE = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-    /**
-     * @dev Converts a `bytes` to its Bytes64 `string` representation.
-     */
-    function encode(bytes memory data) internal pure returns (string memory) {
-        /**
-         * Inspired by Brecht Devos (Brechtpd) implementation - MIT licence
-         * https://github.com/Brechtpd/base64/blob/e78d9fd951e7b0977ddca77d92dc85183770daf4/base64.sol
-         */
-        if (data.length == 0) return "";
+    /// @dev converts `bytes` to `string` representation
+    function _encode(bytes memory data) internal pure returns (string memory) {
+        // Inspired by Brecht Devos (Brechtpd) implementation - MIT licence
+        // https://github.com/Brechtpd/base64/blob/e78d9fd951e7b0977ddca77d92dc85183770daf4/base64.sol
+        if (data.length == 0) return '';
 
         // Loads the table into memory
-        string memory table = _TABLE;
+        string memory table = TABLE;
 
         // Encoding takes 3 bytes chunks of binary data from `bytes` data parameter
         // and split into 4 numbers of 6 bits.
@@ -161,5 +146,4 @@ library JSON {
 
         return result;
     }
-
 }
