@@ -281,4 +281,16 @@ contract KaliAccessManager is Multicall, NTERC1155 {
 
         _listAccount(account, id, true);
     }
+
+    /// -----------------------------------------------------------------------
+    /// URI Logic
+    /// -----------------------------------------------------------------------
+
+    function setURI(uint256 id, string calldata metadata) external payable {
+        if (msg.sender != operatorOf[id]) revert NotOperator();
+
+        uris[id] = metadata;
+
+        emit URI(metadata, id);
+    }
 }
