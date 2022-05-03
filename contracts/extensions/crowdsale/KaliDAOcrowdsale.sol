@@ -88,7 +88,7 @@ contract KaliDAOcrowdsale is KaliOwnable, Multicall, ReentrancyGuard {
     /// Multicall Utilities
     /// -----------------------------------------------------------------------
 
-    function joinList(uint256 id, bytes32[] calldata merkleProof) external {
+    function joinList(uint256 id, bytes32[] calldata merkleProof) external payable {
         accessManager.joinList(
             msg.sender,
             id,
@@ -103,7 +103,7 @@ contract KaliDAOcrowdsale is KaliOwnable, Multicall, ReentrancyGuard {
         uint8 v,
         bytes32 r, 
         bytes32 s
-    ) external {
+    ) external payable {
         token.permit(
             msg.sender,
             address(this),
@@ -119,7 +119,7 @@ contract KaliDAOcrowdsale is KaliOwnable, Multicall, ReentrancyGuard {
     /// Sale Settings
     /// -----------------------------------------------------------------------
 
-    function setExtension(bytes calldata extensionData) external {
+    function setExtension(bytes calldata extensionData) external payable {
         (
             uint256 listId, 
             uint8 purchaseMultiplier,
@@ -208,7 +208,7 @@ contract KaliDAOcrowdsale is KaliOwnable, Multicall, ReentrancyGuard {
     /// Sale Management
     /// -----------------------------------------------------------------------
 
-    function setKaliRate(uint8 kaliRate_) external onlyOwner {
+    function setKaliRate(uint8 kaliRate_) external payable onlyOwner {
         if (kaliRate_ > 100) revert RateLimit();
         kaliRate = kaliRate_;
         emit KaliRateSet(kaliRate_);
@@ -218,7 +218,7 @@ contract KaliDAOcrowdsale is KaliOwnable, Multicall, ReentrancyGuard {
         address to, 
         address asset, 
         uint256 amount
-    ) external onlyOwner {
+    ) external payable onlyOwner {
         if (asset == address(0)) {
             to._safeTransferETH(amount);
         } else {
