@@ -65,7 +65,7 @@ contract KaliDAOcrowdsale is KaliOwnable, Multicall, ReentrancyGuard {
         uint32 saleEnds;
         uint96 purchaseLimit;
         uint96 personalLimit;
-        uint96 purchaseTotal;
+        uint256 purchaseTotal;
         string details;
         mapping(address => uint256) personalPurchased;
     }
@@ -196,7 +196,7 @@ contract KaliDAOcrowdsale is KaliOwnable, Multicall, ReentrancyGuard {
             sale.purchaseAsset._safeTransferFrom(msg.sender, dao, payment);
         }
         
-        sale.purchaseTotal += uint96(amountOut);
+        sale.purchaseTotal += amountOut;
         sale.personalPurchased[msg.sender] += amountOut;
             
         IKaliShareManager(dao).mintShares(msg.sender, amountOut);
