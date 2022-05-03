@@ -16,32 +16,32 @@ library SVG {
     /// Elements
     /// -----------------------------------------------------------------------
 
-    function text(string memory props, string memory children)
+    function _text(string memory props, string memory children)
         internal
         pure
         returns (string memory)
     {
-        return el('text', props, children);
+        return _el('text', props, children);
     }
 
-    function rect(string memory props, string memory children)
+    function _rect(string memory props, string memory children)
         internal
         pure
         returns (string memory)
     {
-        return el('rect', props, children);
+        return _el('rect', props, children);
     }
 
-    function image(string memory href, string memory props)
+    function _image(string memory href, string memory props)
         internal
         pure
         returns (string memory)
     {
         return
-            el('image', string.concat(prop('href', href), ' ', props), NULL);
+            _el('image', string.concat(_prop('href', href), ' ', props), NULL);
     }
 
-    function cdata(string memory content)
+    function _cdata(string memory content)
         internal
         pure
         returns (string memory)
@@ -54,7 +54,7 @@ library SVG {
     /// -----------------------------------------------------------------------
 
     /// @dev a generic element, can be used to construct any SVG (or HTML) element
-    function el(
+    function _el(
         string memory tag,
         string memory props,
         string memory children
@@ -74,7 +74,7 @@ library SVG {
     }
 
     /// @dev an SVG attribute
-    function prop(string memory key, string memory val)
+    function _prop(string memory key, string memory val)
         internal
         pure
         returns (string memory)
@@ -83,10 +83,10 @@ library SVG {
     }
 
     /// @dev converts an unsigned integer to a string
-    function uint2str(uint256 i)
+    function _uint2str(uint256 i)
         internal
         pure
-        returns (string memory _uintAsString)
+        returns (string memory)
     {
         if (i == 0) {
             return '0';
