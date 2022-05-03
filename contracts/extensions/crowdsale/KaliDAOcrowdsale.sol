@@ -34,8 +34,8 @@ contract KaliDAOcrowdsale is KaliOwnable, Multicall, ReentrancyGuard {
         uint96 personalLimit,
         string details
     );
-    event KaliRateSet(uint8 kaliRate);
     event ExtensionCalled(address indexed dao, address indexed purchaser, uint256 amountOut);
+    event KaliRateSet(uint8 kaliRate);
 
     /// -----------------------------------------------------------------------
     /// Errors
