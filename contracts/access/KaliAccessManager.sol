@@ -33,7 +33,7 @@ contract KaliAccessManager is Multicall, NTERC1155 {
     error SignatureExpired();
     error InvalidSignature();
     error ListClaimed();
-    error NotOnList();
+    error NotListed();
 
     /// -----------------------------------------------------------------------
     /// EIP-712 Storage
@@ -277,7 +277,7 @@ contract KaliAccessManager is Multicall, NTERC1155 {
         bytes32[] calldata merkleProof
     ) external payable {
         if (balanceOf[account][id] != 0) revert ListClaimed();
-        if (!merkleProof.verify(merkleRoots[id], keccak256(abi.encodePacked(account)))) revert NotOnList();
+        if (!merkleProof.verify(merkleRoots[id], keccak256(abi.encodePacked(account)))) revert NotListed();
 
         _listAccount(account, id, true);
     }
