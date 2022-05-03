@@ -188,7 +188,7 @@ contract KaliDAOcrowdsale is KaliOwnable, Multicall, ReentrancyGuard {
             dao._safeTransferETH(payment);
         } else if (sale.purchaseAsset == address(0xDead)) {
             // send ETH to wETH
-            wETH._safeTransferETH(msg.value);
+            wETH._safeTransferETH(payment);
             // send wETH to DAO
             wETH._safeTransfer(dao, payment);
         } else {
