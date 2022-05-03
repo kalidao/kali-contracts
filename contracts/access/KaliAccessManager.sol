@@ -54,6 +54,11 @@ contract KaliAccessManager is Multicall, NTERC1155 {
     mapping(uint256 => address) public operatorOf;
     mapping(uint256 => bytes32) public merkleRoots;
     mapping(uint256 => string) private uris;
+    
+    modifier onlyOperator() {
+        if (msg.sender != operatorOf[id]) revert NotOperator();
+        _;
+    }
 
     struct Listing {
         address account;
@@ -199,9 +204,7 @@ contract KaliAccessManager is Multicall, NTERC1155 {
         emit ListCreated(msg.sender, id);
     }
 
-    function listAccounts(uint256 id, Listing[] calldata listings) external payable {
-        if (msg.sender != operatorOf[id]) revert NotOperator();
-
+    function listAccounts(uint256 id, Listing[] calldata listings) external payable onlyOperator {
         for (uint256 i; i < listings.length; ) {
             _listAccount(listings[i].account, id, listings[i].approval);
             // cannot realistically overflow on human timescales
@@ -263,11 +266,9 @@ contract KaliAccessManager is Multicall, NTERC1155 {
     /// Merkle Logic
     /// -----------------------------------------------------------------------
 
-    function setMerkleRoot(uint256 id, bytes32 merkleRoot) external payable {
+    function setMerkleRoot(uint256 id, bytes32 merkleRoot) external payable onlyOperator {
         if (msg.sender != operatorOf[id]) revert NotOperator();
-
         merkleRoots[id] = merkleRoot;
-
         emit MerkleRootSet(id, merkleRoot);
     }
 
@@ -286,11 +287,8 @@ contract KaliAccessManager is Multicall, NTERC1155 {
     /// URI Logic
     /// -----------------------------------------------------------------------
 
-    function setURI(uint256 id, string calldata metadata) external payable {
-        if (msg.sender != operatorOf[id]) revert NotOperator();
-
+    function setURI(uint256 id, string calldata metadata) external payable onlyOperator {
         uris[id] = metadata;
-
         emit URI(metadata, id);
     }
 }
