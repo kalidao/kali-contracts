@@ -3,7 +3,6 @@ pragma solidity >=0.8.4;
 
 import {MerkleProof} from '../libraries/MerkleProof.sol';
 import {SVG} from '../libraries/SVG.sol';
-import {Utils} from '../libraries/Utils.sol';
 import {JSON} from '../libraries/JSON.sol';
 
 import {Multicall} from '../utils/Multicall.sol';
@@ -71,59 +70,59 @@ contract KaliAccessManager is Multicall, NTERC1155 {
     
     function _buildURI(uint256 id) private pure returns (string memory) {
         return
-            JSON.formattedMetadata(
-                string.concat('Access #', Utils.uint2str(id)), 
+            JSON._formattedMetadata(
+                string.concat('Access #', SVG._uint2str(id)), 
                 'Kali Access Manager', 
                 string.concat(
                 '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" style="background:#191919">',
-                SVG.text(
+                SVG._text(
                     string.concat(
-                        SVG.prop('x', '20'),
-                        SVG.prop('y', '40'),
-                        SVG.prop('font-size', '22'),
-                        SVG.prop('fill', 'white')
+                        SVG._prop('x', '20'),
+                        SVG._prop('y', '40'),
+                        SVG._prop('font-size', '22'),
+                        SVG._prop('fill', 'white')
                     ),
                     string.concat(
-                        SVG.cdata('Access List #'),
-                        SVG.uint2str(id)
+                        SVG._cdata('Access List #'),
+                        SVG._uint2str(id)
                     )
                 ),
-                SVG.rect(
+                SVG._rect(
                     string.concat(
-                        SVG.prop('fill', 'maroon'),
-                        SVG.prop('x', '20'),
-                        SVG.prop('y', '50'),
-                        SVG.prop('width', SVG.uint2str(160)),
-                        SVG.prop('height', SVG.uint2str(10))
+                        SVG._prop('fill', 'maroon'),
+                        SVG._prop('x', '20'),
+                        SVG._prop('y', '50'),
+                        SVG._prop('width', SVG._uint2str(160)),
+                        SVG._prop('height', SVG._uint2str(10))
                     ),
                     SVG.NULL
                 ),
-                SVG.text(
+                SVG._text(
                     string.concat(
-                        SVG.prop('x', '20'),
-                        SVG.prop('y', '90'),
-                        SVG.prop('font-size', '12'),
-                        SVG.prop('fill', 'white')
+                        SVG._prop('x', '20'),
+                        SVG._prop('y', '90'),
+                        SVG._prop('font-size', '12'),
+                        SVG._prop('fill', 'white')
                     ),
                     string.concat(
-                        SVG.cdata('The holder of this token can enjoy')
+                        SVG._cdata('The holder of this token can enjoy')
                     )
                 ),
-                SVG.text(
+                SVG._text(
                     string.concat(
-                        SVG.prop('x', '20'),
-                        SVG.prop('y', '110'),
-                        SVG.prop('font-size', '12'),
-                        SVG.prop('fill', 'white')
+                        SVG._prop('x', '20'),
+                        SVG._prop('y', '110'),
+                        SVG._prop('font-size', '12'),
+                        SVG._prop('fill', 'white')
                     ),
-                    string.concat(SVG.cdata('access to restricted functions.'))
+                    string.concat(SVG._cdata('access to restricted functions.'))
                 ),
-                SVG.image(
+                SVG._image(
                     'https://gateway.pinata.cloud/ipfs/Qmb2AWDjE8GNUob83FnZfuXLj9kSs2uvU9xnoCbmXhH7A1', 
                     string.concat(
-                        SVG.prop('x', '215'),
-                        SVG.prop('y', '220'),
-                        SVG.prop('width', '80')
+                        SVG._prop('x', '215'),
+                        SVG._prop('y', '220'),
+                        SVG._prop('width', '80')
                     )
                 ),
                 '</svg>'
