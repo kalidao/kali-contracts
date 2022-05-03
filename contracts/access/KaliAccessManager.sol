@@ -48,8 +48,8 @@ contract KaliAccessManager is Multicall, NTERC1155 {
 
     uint256 public listCount;
 
-    string public constant name = "Access";
-    string public constant symbol = "AXS";
+    string public constant name = 'Access';
+    string public constant symbol = 'AXS';
 
     mapping(uint256 => address) public operatorOf;
     mapping(uint256 => bytes32) public merkleRoots;
