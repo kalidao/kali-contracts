@@ -267,7 +267,6 @@ contract KaliAccessManager is Multicall, NTERC1155 {
     /// -----------------------------------------------------------------------
 
     function setMerkleRoot(uint256 id, bytes32 merkleRoot) external payable onlyOperator(id) {
-        if (msg.sender != operatorOf[id]) revert NotOperator();
         merkleRoots[id] = merkleRoot;
         emit MerkleRootSet(id, merkleRoot);
     }
