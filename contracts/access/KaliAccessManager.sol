@@ -271,7 +271,7 @@ contract KaliAccessManager is Multicall, NTERC1155 {
         emit MerkleRootSet(id, merkleRoot);
     }
 
-    function joinList(
+    function claimList(
         address account,
         uint256 id,
         bytes32[] calldata merkleProof
