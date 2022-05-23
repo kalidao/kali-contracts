@@ -29,7 +29,7 @@ contract KaliDAOlinearCurve is ReentrancyGuard {
 
     error PurchaseLimit();
 
-    IKaliAccessManager public immutable accessManager;
+    IKaliWhitelistManager public immutable whitelistManager;
 
     mapping(address => Crowdsale) public crowdsales;
 
@@ -42,8 +42,8 @@ contract KaliDAOlinearCurve is ReentrancyGuard {
         uint32 saleEnds;
     }
 
-    constructor(IKaliAccessManager accessManager_) {
-        accessManager = accessManager_;
+    constructor(IKaliWhitelistManager whitelistManager_) {
+        whitelistManager = whitelistManager_;
     }
 
     function setExtension(bytes calldata extensionData) public nonReentrant virtual {
@@ -78,7 +78,7 @@ contract KaliDAOlinearCurve is ReentrancyGuard {
         if (block.timestamp > sale.saleEnds) revert SaleEnded();
 
         if (sale.listId != 0)
-            if (!accessManager.whitelistedAccounts(sale.listId, account)) revert NotWhitelisted();
+            if (!whitelistManager.whitelistedAccounts(sale.listId, account)) revert NotWhitelisted();
 
         uint256 estPrice = estimatePrice(sale, amount);
 
