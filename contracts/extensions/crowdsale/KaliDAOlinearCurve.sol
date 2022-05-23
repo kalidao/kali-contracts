@@ -1,14 +1,20 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
-
+// SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.4;
 
-import '../../libraries/SafeTransferLib.sol';
-import '../../interfaces/IERC20minimal.sol';
-import '../../interfaces/IKaliWhitelistManager.sol';
-import '../../utils/ReentrancyGuard.sol';
+import {SafeTransferLib} from '../../libraries/SafeTransferLib.sol';
 
-/// @notice Crowdsale contract that receives ETH or tokens to mint registered DAO tokens, including merkle whitelisting.
-contract KaliDAOlinearCurve is ReentrancyGuard {
+import {IKaliAccessManager} from '../../interfaces/IKaliAccessManager.sol';
+import {IKaliShareManager} from '../../interfaces/IKaliShareManager.sol';
+import {IERC20minimal} from '../../interfaces/IERC20minimal.sol';
+import {IERC20Permit} from '../../interfaces/IERC20Permit.sol';
+
+import {KaliOwnable} from '../../access/KaliOwnable.sol';
+
+import {Multicall} from '../../utils/Multicall.sol';
+import {ReentrancyGuard} from '../../utils/ReentrancyGuard.sol';
+
+/// @notice Linear crowdsale contract that receives ETH or ERC-20 to mint registered DAO tokens, including merkle access lists
+contract KaliDAOlinearCurve is KaliOwnable, Multicall, ReentrancyGuard {
     using SafeTransferLib for address;
 
     event ExtensionSet(
@@ -23,13 +29,13 @@ contract KaliDAOlinearCurve is ReentrancyGuard {
 
     error SaleEnded();
 
-    error NotWhitelisted();
+    error NotListed();
 
     error NotPrice();
 
     error PurchaseLimit();
 
-    IKaliWhitelistManager public immutable whitelistManager;
+    IKaliAccessManager private immutable accessManager;
 
     mapping(address => Crowdsale) public crowdsales;
 
@@ -42,8 +48,8 @@ contract KaliDAOlinearCurve is ReentrancyGuard {
         uint32 saleEnds;
     }
 
-    constructor(IKaliWhitelistManager whitelistManager_) {
-        whitelistManager = whitelistManager_;
+    constructor(IKaliAccessManager accessManager_) {
+        accessManager = accessManager_;
     }
 
     function setExtension(bytes calldata extensionData) public nonReentrant virtual {
@@ -77,8 +83,8 @@ contract KaliDAOlinearCurve is ReentrancyGuard {
 
         if (block.timestamp > sale.saleEnds) revert SaleEnded();
 
-        if (sale.listId != 0)
-            if (!whitelistManager.whitelistedAccounts(sale.listId, account)) revert NotWhitelisted();
+        if (sale.listId != 0) 
+            if (accessManager.balanceOf(msg.sender, sale.listId) == 0) revert NotListed();
 
         uint256 estPrice = estimatePrice(sale, amount);
 
