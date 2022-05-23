@@ -6,7 +6,7 @@ import {SafeTransferLib} from '../../libraries/SafeTransferLib.sol';
 import {IKaliAccessManager} from '../../interfaces/IKaliAccessManager.sol';
 import {IKaliShareManager} from '../../interfaces/IKaliShareManager.sol';
 import {IERC20minimal} from '../../interfaces/IERC20minimal.sol';
-import {IERC20Permit} from '../../interfaces/IERC20Permit.sol';
+import {IERC20permit} from '../../interfaces/IERC20permit.sol';
 
 import {KaliOwnable} from '../../access/KaliOwnable.sol';
 
