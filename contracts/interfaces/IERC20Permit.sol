@@ -2,7 +2,7 @@
 pragma solidity >=0.8.4;
 
 /// @notice EIP-2612 interface
-interface IERC20Permit {
+interface IERC20permit {
     function permit(
         address owner, 
         address spender, 
