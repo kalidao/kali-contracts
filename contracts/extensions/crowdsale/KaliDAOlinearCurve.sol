@@ -107,7 +107,7 @@ contract KaliDAOlinearCurve is KaliOwnable, Multicall, ReentrancyGuard {
     function estimatePrice(Crowdsale memory sale, uint256 amount) public view returns (uint256) {
         uint256 start = IERC20minimal(msg.sender).totalSupply();
 
-        uint256 end = amount;
+        uint256 end = IERC20minimal(msg.sender).totalSupply() + amount;
 
         uint endIntegral = (sale.startingPrice * end) + (end**2 / (sale.curve * 2));
 
