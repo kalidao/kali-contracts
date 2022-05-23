@@ -35,12 +35,6 @@ contract KaliShareManager is ReentrancyGuard {
 
     mapping(address => mapping(address => bool)) public management;
 
-    struct Update {
-        address account;
-        uint256 amount;
-        bool mint;
-    }
-
     /// -----------------------------------------------------------------------
     /// Mgmt Settings
     /// -----------------------------------------------------------------------
@@ -68,18 +62,18 @@ contract KaliShareManager is ReentrancyGuard {
     /// Mgmt Logic
     /// -----------------------------------------------------------------------
 
-    function callExtension(address dao, bytes[] calldata updates)
+    function callExtension(address dao, bytes[] calldata extensionData)
         external
         nonReentrant
     {
         if (!management[dao][msg.sender]) revert Forbidden();
 
-        for (uint256 i; i < updates.length; ) {
+        for (uint256 i; i < extensionData.length; ) {
             (
                 address account,
                 uint256 amount,
                 bool mint
-            ) = abi.decode(updates[i], (address, uint256, bool));
+            ) = abi.decode(extensionData[i], (address, uint256, bool));
 
             if (mint) {
                 IKaliShareManager(dao).mintShares(
@@ -98,6 +92,6 @@ contract KaliShareManager is ReentrancyGuard {
             }
         }
 
-        emit ExtensionCalled(dao, msg.sender, updates);
+        emit ExtensionCalled(dao, msg.sender, extensionData);
     }
 }
