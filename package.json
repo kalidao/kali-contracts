@@ -4,6 +4,7 @@
   "description": "Smart Contracts for KaliDAO ",
   "main": "index.js",
   "scripts": {
+    "clean": "hardhat clean",
     "build": "hardhat compile",
     "test": "hardhat test"
   },

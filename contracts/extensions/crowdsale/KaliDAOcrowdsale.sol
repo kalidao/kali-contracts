@@ -97,7 +97,7 @@ contract KaliDAOcrowdsale is KaliOwnable, Multicall, ReentrancyGuard {
     }
 
     function setPermit(
-        IERC20Permit token, 
+        IERC20permit token, 
         uint256 value,
         uint256 deadline,
         uint8 v,
