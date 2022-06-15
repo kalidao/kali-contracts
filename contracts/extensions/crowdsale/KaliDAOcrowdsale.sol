@@ -143,6 +143,8 @@ contract KaliDAOcrowdsale is KaliOwnable, Multicall, ReentrancyGuard {
         sale.purchaseLimit = purchaseLimit;
         sale.personalLimit = personalLimit;
         sale.details = details;
+        sale.purchaseTotal = 0;
+        sale.personalPurchased[msg.sender] = 0;
 
         emit ExtensionSet(msg.sender, listId, purchaseMultiplier, purchaseAsset, saleEnds, purchaseLimit, personalLimit, details);
     }
