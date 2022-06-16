@@ -52,7 +52,7 @@ contract KaliDAOcrowdsale is KaliOwnable, Multicall, ReentrancyGuard {
     /// Sale Storage
     /// -----------------------------------------------------------------------
  
-    uint8 private kaliRate;
+    uint8 public kaliRate;
     IKaliAccessManager private immutable accessManager;
     address private immutable wETH;
 
