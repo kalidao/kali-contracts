@@ -1062,7 +1062,6 @@ contract KaliDAOx is KaliDAOxToken, Multicallable, NFTreceiver, ReentrancyGuard 
     }
     
     function voteBySig(
-        address signer, 
         uint256 proposal, 
         bool approve, 
         uint8 v, 
@@ -1077,9 +1076,8 @@ contract KaliDAOx is KaliDAOxToken, Multicallable, NFTreceiver, ReentrancyGuard 
                     keccak256(
                         abi.encode(
                             keccak256(
-                                'SignVote(address signer,uint256 proposal,bool approve)'
+                                'SignVote(uint256 proposal,bool approve)'
                             ),
-                            signer,
                             proposal,
                             approve
                         )
@@ -1092,11 +1090,9 @@ contract KaliDAOx is KaliDAOxToken, Multicallable, NFTreceiver, ReentrancyGuard 
         );
 
         if (recoveredAddress == address(0)) revert InvalidSignature();
-
-        if (recoveredAddress != signer) revert InvalidSignature();
         
         _vote(
-            signer, 
+            recoveredAddress, 
             proposal, 
             approve
         );
