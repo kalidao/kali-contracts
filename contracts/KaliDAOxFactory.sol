@@ -718,7 +718,7 @@ abstract contract ReentrancyGuard {
     }
 }
 
-/// @notice Kali DAO membership extension interface.
+/// @notice Kali DAO extension interface.
 interface IKaliDAOxExtension {
     function setExtension(bytes calldata extensionData) external payable;
 }
@@ -753,6 +753,17 @@ contract KaliDAOx is KaliDAOxToken, Multicallable, NFTreceiver, ReentrancyGuard 
     );
 
     event ProposalProcessed(uint256 proposal, bool didProposalPass);
+
+    event ExtensionSet(address extension, bool set);
+
+    event URIset(string daoURI);
+
+    event GovSettingsUpdated(
+        uint64 votingPeriod, 
+        uint64 gracePeriod, 
+        uint64 quorum, 
+        uint64 supermajority
+    );
 
     /// -----------------------------------------------------------------------
     /// ERRORS
@@ -1146,6 +1157,7 @@ contract KaliDAOx is KaliDAOxToken, Multicallable, NFTreceiver, ReentrancyGuard 
         bytes[] calldata payloads
     ) public payable nonReentrant virtual returns (bool didProposalPass, bytes[] memory results) {
         Proposal storage prop = proposals[proposal];
+
         { // scope to avoid stack too deep error
         VoteType voteType = proposalVoteTypes[proposalType];
 
@@ -1174,7 +1186,6 @@ contract KaliDAOx is KaliDAOxToken, Multicallable, NFTreceiver, ReentrancyGuard 
         // with unix time to exceed the max uint256 value
         unchecked {
             if (!didProposalPass && gracePeriod != 0) {
-                // if (block.timestamp <= prop.creationTime + votingPeriod + gracePeriod) revert VotingNotEnded();
                 if (block.timestamp <= prop.creationTime + (
                     votingPeriod - (
                         block.timestamp - (prop.creationTime + votingPeriod))
@@ -1243,8 +1254,8 @@ contract KaliDAOx is KaliDAOxToken, Multicallable, NFTreceiver, ReentrancyGuard 
 
     function _countVotes(
         VoteType voteType,
-        uint256 yesVotes,
-        uint256 noVotes
+        uint96 yesVotes,
+        uint96 noVotes
     ) internal view virtual returns (bool didProposalPass) {
         // fail proposal if no participation
         if (yesVotes == 0 && noVotes == 0) return false;
@@ -1297,6 +1308,40 @@ contract KaliDAOx is KaliDAOxToken, Multicallable, NFTreceiver, ReentrancyGuard 
         bytes calldata payload
     ) public payable onlyExtension virtual returns (bool success, bytes memory result) {
         (success, result) = account.call{value: amount}(payload);
+    }
+
+    function setExtension(address extension, bool set) public payable onlyExtension virtual {
+        extensions[extension] = set;
+
+        emit ExtensionSet(extension, set);
+    }
+
+    function setURI(string calldata daoURI_) public payable onlyExtension virtual {
+        daoURI = daoURI_;
+
+        emit URIset(daoURI_);
+    }
+
+    function updateGovSettings(
+        uint64 votingPeriod_,
+        uint64 gracePeriod_,
+        uint64 quorum_,
+        uint64 supermajority_
+    ) public payable onlyExtension virtual {
+        if (votingPeriod_ != 0) votingPeriod = votingPeriod_;
+
+        if (gracePeriod_ != 0) gracePeriod = gracePeriod_;
+
+        if (quorum_ != 0) quorum = quorum_;
+
+        if (supermajority_ != 0) supermajority = supermajority_;
+
+        emit GovSettingsUpdated(
+            votingPeriod_, 
+            gracePeriod_, 
+            quorum_, 
+            supermajority_
+        );
     }
 }
 
