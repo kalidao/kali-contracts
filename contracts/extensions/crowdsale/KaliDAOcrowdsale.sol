@@ -84,6 +84,14 @@ contract KaliDAOcrowdsale is KaliOwnable, Multicall, ReentrancyGuard {
         return crowdsales[dao].personalPurchased[account];
     }
 
+    function checkPurchasers(address dao)
+        external
+        view
+        returns (address[] memory)
+    {
+        return crowdsales[dao].purchasers;
+    }
+
     /// -----------------------------------------------------------------------
     /// Constructor
     /// -----------------------------------------------------------------------
