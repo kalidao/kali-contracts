@@ -65,7 +65,7 @@ contract KaliDAOcrowdsale is KaliOwnable, Multicall, ReentrancyGuard {
 
     struct Crowdsale {
         uint256 listId;
-        uint8 purchaseMultiplier;
+        uint256 purchaseMultiplier;
         address purchaseAsset;
         uint32 saleEnds;
         uint96 purchaseLimit;
