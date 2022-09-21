@@ -27,7 +27,7 @@ contract KaliDAOcrowdsale is KaliOwnable, Multicall, ReentrancyGuard {
     event ExtensionSet(
         address indexed dao,
         uint256 listId,
-        uint8 purchaseMultiplier,
+        uint256 purchaseMultiplier,
         address purchaseAsset,
         uint32 saleEnds,
         uint96 purchaseLimit,
@@ -131,7 +131,7 @@ contract KaliDAOcrowdsale is KaliOwnable, Multicall, ReentrancyGuard {
     function setExtension(bytes calldata extensionData) external payable {
         (
             uint256 listId,
-            uint8 purchaseMultiplier,
+            uint256 purchaseMultiplier,
             address purchaseAsset,
             uint32 saleEnds,
             uint96 purchaseLimit,
@@ -139,7 +139,7 @@ contract KaliDAOcrowdsale is KaliOwnable, Multicall, ReentrancyGuard {
             string memory details
         ) = abi.decode(
                 extensionData,
-                (uint256, uint8, address, uint32, uint96, uint96, string)
+                (uint256, uint256, address, uint32, uint96, uint96, string)
             );
 
         if (purchaseMultiplier == 0) revert NullMultiplier();
