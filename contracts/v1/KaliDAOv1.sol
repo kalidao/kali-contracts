@@ -12,11 +12,23 @@ abstract contract KaliDAOtoken {
 
     event Transfer(address indexed from, address indexed to, uint256 amount);
 
-    event Approval(address indexed owner, address indexed spender, uint256 amount);
+    event Approval(
+        address indexed owner,
+        address indexed spender,
+        uint256 amount
+    );
 
-    event DelegateChanged(address indexed delegator, address indexed fromDelegate, address indexed toDelegate);
+    event DelegateChanged(
+        address indexed delegator,
+        address indexed fromDelegate,
+        address indexed toDelegate
+    );
 
-    event DelegateVotesChanged(address indexed delegate, uint256 previousBalance, uint256 newBalance);
+    event DelegateVotesChanged(
+        address indexed delegate,
+        uint256 previousBalance,
+        uint256 newBalance
+    );
 
     event PauseFlipped(bool paused);
 
@@ -67,7 +79,9 @@ abstract contract KaliDAOtoken {
     //////////////////////////////////////////////////////////////*/
 
     bytes32 public constant PERMIT_TYPEHASH =
-        keccak256('Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)');
+        keccak256(
+            "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"
+        );
 
     uint256 internal INITIAL_CHAIN_ID;
 
@@ -81,8 +95,10 @@ abstract contract KaliDAOtoken {
 
     bool public paused;
 
-    bytes32 public constant DELEGATION_TYPEHASH = 
-        keccak256('Delegation(address delegatee,uint256 nonce,uint256 deadline)');
+    bytes32 public constant DELEGATION_TYPEHASH =
+        keccak256(
+            "Delegation(address delegatee,uint256 nonce,uint256 deadline)"
+        );
 
     mapping(address => address) internal _delegates;
 
@@ -109,15 +125,15 @@ abstract contract KaliDAOtoken {
         if (voters_.length != shares_.length) revert NoArrayParity();
 
         name = name_;
-        
+
         symbol = symbol_;
-        
+
         paused = paused_;
 
         INITIAL_CHAIN_ID = block.chainid;
-        
+
         INITIAL_DOMAIN_SEPARATOR = _computeDomainSeparator();
-        
+
         // cannot realistically overflow on human timescales
         unchecked {
             for (uint256 i; i < voters_.length; i++) {
@@ -130,7 +146,12 @@ abstract contract KaliDAOtoken {
                             ERC-20 LOGIC
     //////////////////////////////////////////////////////////////*/
 
-    function approve(address spender, uint256 amount) public payable virtual returns (bool) {
+    function approve(address spender, uint256 amount)
+        public
+        payable
+        virtual
+        returns (bool)
+    {
         allowance[msg.sender][spender] = amount;
 
         emit Approval(msg.sender, spender, amount);
@@ -138,7 +159,13 @@ abstract contract KaliDAOtoken {
         return true;
     }
 
-    function transfer(address to, uint256 amount) public payable notPaused virtual returns (bool) {
+    function transfer(address to, uint256 amount)
+        public
+        payable
+        virtual
+        notPaused
+        returns (bool)
+    {
         balanceOf[msg.sender] -= amount;
 
         // cannot overflow because the sum of all user
@@ -146,7 +173,7 @@ abstract contract KaliDAOtoken {
         unchecked {
             balanceOf[to] += amount;
         }
-        
+
         _moveDelegates(delegates(msg.sender), delegates(to), amount);
 
         emit Transfer(msg.sender, to, amount);
@@ -158,8 +185,8 @@ abstract contract KaliDAOtoken {
         address from,
         address to,
         uint256 amount
-    ) public payable notPaused virtual returns (bool) {
-        if (allowance[from][msg.sender] != type(uint256).max) 
+    ) public payable virtual notPaused returns (bool) {
+        if (allowance[from][msg.sender] != type(uint256).max)
             allowance[from][msg.sender] -= amount;
 
         balanceOf[from] -= amount;
@@ -169,7 +196,7 @@ abstract contract KaliDAOtoken {
         unchecked {
             balanceOf[to] += amount;
         }
-        
+
         _moveDelegates(delegates(from), delegates(to), amount);
 
         emit Transfer(from, to, amount);
@@ -180,7 +207,7 @@ abstract contract KaliDAOtoken {
     /*///////////////////////////////////////////////////////////////
                             EIP-2612 LOGIC
     //////////////////////////////////////////////////////////////*/
-    
+
     function permit(
         address owner,
         address spender,
@@ -196,15 +223,25 @@ abstract contract KaliDAOtoken {
         unchecked {
             bytes32 digest = keccak256(
                 abi.encodePacked(
-                    '\x19\x01',
+                    "\x19\x01",
                     DOMAIN_SEPARATOR(),
-                    keccak256(abi.encode(PERMIT_TYPEHASH, owner, spender, value, nonces[owner]++, deadline))
+                    keccak256(
+                        abi.encode(
+                            PERMIT_TYPEHASH,
+                            owner,
+                            spender,
+                            value,
+                            nonces[owner]++,
+                            deadline
+                        )
+                    )
                 )
             );
 
             address recoveredAddress = ecrecover(digest, v, r, s);
 
-            if (recoveredAddress == address(0) || recoveredAddress != owner) revert InvalidSignature();
+            if (recoveredAddress == address(0) || recoveredAddress != owner)
+                revert InvalidSignature();
 
             allowance[recoveredAddress][spender] = value;
         }
@@ -213,16 +250,21 @@ abstract contract KaliDAOtoken {
     }
 
     function DOMAIN_SEPARATOR() public view virtual returns (bytes32) {
-        return block.chainid == INITIAL_CHAIN_ID ? INITIAL_DOMAIN_SEPARATOR : _computeDomainSeparator();
+        return
+            block.chainid == INITIAL_CHAIN_ID
+                ? INITIAL_DOMAIN_SEPARATOR
+                : _computeDomainSeparator();
     }
 
     function _computeDomainSeparator() internal view virtual returns (bytes32) {
-        return 
+        return
             keccak256(
                 abi.encode(
-                    keccak256('EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)'),
+                    keccak256(
+                        "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
+                    ),
                     keccak256(bytes(name)),
-                    keccak256('1'),
+                    keccak256("1"),
                     block.chainid,
                     address(this)
                 )
@@ -238,19 +280,32 @@ abstract contract KaliDAOtoken {
 
         _;
     }
-    
-    function delegates(address delegator) public view virtual returns (address) {
+
+    function delegates(address delegator)
+        public
+        view
+        virtual
+        returns (address)
+    {
         address current = _delegates[delegator];
-        
+
         return current == address(0) ? delegator : current;
     }
 
-    function getCurrentVotes(address account) public view virtual returns (uint256) {
+    function getCurrentVotes(address account)
+        public
+        view
+        virtual
+        returns (uint256)
+    {
         // this is safe from underflow because decrement only occurs if `nCheckpoints` is positive
         unchecked {
             uint256 nCheckpoints = numCheckpoints[account];
 
-            return nCheckpoints != 0 ? checkpoints[account][nCheckpoints - 1].votes : 0;
+            return
+                nCheckpoints != 0
+                    ? checkpoints[account][nCheckpoints - 1].votes
+                    : 0;
         }
     }
 
@@ -259,23 +314,27 @@ abstract contract KaliDAOtoken {
     }
 
     function delegateBySig(
-        address delegatee, 
-        uint256 nonce, 
-        uint256 deadline, 
-        uint8 v, 
-        bytes32 r, 
+        address delegatee,
+        uint256 nonce,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
         bytes32 s
     ) public payable virtual {
         if (block.timestamp > deadline) revert SignatureExpired();
 
-        bytes32 structHash = keccak256(abi.encode(DELEGATION_TYPEHASH, delegatee, nonce, deadline));
+        bytes32 structHash = keccak256(
+            abi.encode(DELEGATION_TYPEHASH, delegatee, nonce, deadline)
+        );
 
-        bytes32 digest = keccak256(abi.encodePacked('\x19\x01', DOMAIN_SEPARATOR(), structHash));
+        bytes32 digest = keccak256(
+            abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR(), structHash)
+        );
 
         address signatory = ecrecover(digest, v, r, s);
 
         if (signatory == address(0)) revert NullAddress();
-        
+
         // cannot realistically overflow on human timescales
         unchecked {
             if (nonce != nonces[signatory]++) revert InvalidNonce();
@@ -284,22 +343,29 @@ abstract contract KaliDAOtoken {
         _delegate(signatory, delegatee);
     }
 
-    function getPriorVotes(address account, uint256 timestamp) public view virtual returns (uint96) {
+    function getPriorVotes(address account, uint256 timestamp)
+        public
+        view
+        virtual
+        returns (uint96)
+    {
         if (block.timestamp <= timestamp) revert NotDetermined();
 
         uint256 nCheckpoints = numCheckpoints[account];
 
         if (nCheckpoints == 0) return 0;
-        
+
         // this is safe from underflow because decrement only occurs if `nCheckpoints` is positive
         unchecked {
-            if (checkpoints[account][nCheckpoints - 1].fromTimestamp <= timestamp)
-                return checkpoints[account][nCheckpoints - 1].votes;
+            if (
+                checkpoints[account][nCheckpoints - 1].fromTimestamp <=
+                timestamp
+            ) return checkpoints[account][nCheckpoints - 1].votes;
 
             if (checkpoints[account][0].fromTimestamp > timestamp) return 0;
 
             uint256 lower;
-            
+
             // this is safe from underflow because decrement only occurs if `nCheckpoints` is positive
             uint256 upper = nCheckpoints - 1;
 
@@ -318,8 +384,7 @@ abstract contract KaliDAOtoken {
                 }
             }
 
-        return checkpoints[account][lower].votes;
-
+            return checkpoints[account][lower].votes;
         }
     }
 
@@ -334,45 +399,58 @@ abstract contract KaliDAOtoken {
     }
 
     function _moveDelegates(
-        address srcRep, 
-        address dstRep, 
+        address srcRep,
+        address dstRep,
         uint256 amount
     ) internal virtual {
-        if (srcRep != dstRep && amount != 0) 
+        if (srcRep != dstRep && amount != 0)
             if (srcRep != address(0)) {
                 uint256 srcRepNum = numCheckpoints[srcRep];
-                
-                uint256 srcRepOld = srcRepNum != 0 ? checkpoints[srcRep][srcRepNum - 1].votes : 0;
+
+                uint256 srcRepOld = srcRepNum != 0
+                    ? checkpoints[srcRep][srcRepNum - 1].votes
+                    : 0;
 
                 uint256 srcRepNew = srcRepOld - amount;
 
                 _writeCheckpoint(srcRep, srcRepNum, srcRepOld, srcRepNew);
             }
-            
-            if (dstRep != address(0)) {
-                uint256 dstRepNum = numCheckpoints[dstRep];
 
-                uint256 dstRepOld = dstRepNum != 0 ? checkpoints[dstRep][dstRepNum - 1].votes : 0;
+        if (dstRep != address(0)) {
+            uint256 dstRepNum = numCheckpoints[dstRep];
 
-                uint256 dstRepNew = dstRepOld + amount;
+            uint256 dstRepOld = dstRepNum != 0
+                ? checkpoints[dstRep][dstRepNum - 1].votes
+                : 0;
 
-                _writeCheckpoint(dstRep, dstRepNum, dstRepOld, dstRepNew);
-            }
+            uint256 dstRepNew = dstRepOld + amount;
+
+            _writeCheckpoint(dstRep, dstRepNum, dstRepOld, dstRepNew);
+        }
     }
 
     function _writeCheckpoint(
-        address delegatee, 
-        uint256 nCheckpoints, 
-        uint256 oldVotes, 
+        address delegatee,
+        uint256 nCheckpoints,
+        uint256 oldVotes,
         uint256 newVotes
     ) internal virtual {
         unchecked {
             // this is safe from underflow because decrement only occurs if `nCheckpoints` is positive
-            if (nCheckpoints != 0 && checkpoints[delegatee][nCheckpoints - 1].fromTimestamp == block.timestamp) {
-                checkpoints[delegatee][nCheckpoints - 1].votes = _safeCastTo96(newVotes);
+            if (
+                nCheckpoints != 0 &&
+                checkpoints[delegatee][nCheckpoints - 1].fromTimestamp ==
+                block.timestamp
+            ) {
+                checkpoints[delegatee][nCheckpoints - 1].votes = _safeCastTo96(
+                    newVotes
+                );
             } else {
-                checkpoints[delegatee][nCheckpoints] = Checkpoint(_safeCastTo32(block.timestamp), _safeCastTo96(newVotes));
-                
+                checkpoints[delegatee][nCheckpoints] = Checkpoint(
+                    _safeCastTo32(block.timestamp),
+                    _safeCastTo96(newVotes)
+                );
+
                 // cannot realistically overflow on human timescales
                 numCheckpoints[delegatee] = nCheckpoints + 1;
             }
@@ -412,13 +490,13 @@ abstract contract KaliDAOtoken {
 
         emit Transfer(from, address(0), amount);
     }
-    
+
     function burn(uint256 amount) public payable virtual {
         _burn(msg.sender, amount);
     }
 
     function burnFrom(address from, uint256 amount) public payable virtual {
-        if (allowance[from][msg.sender] != type(uint256).max) 
+        if (allowance[from][msg.sender] != type(uint256).max)
             allowance[from][msg.sender] -= amount;
 
         _burn(from, amount);
@@ -433,17 +511,17 @@ abstract contract KaliDAOtoken {
 
         emit PauseFlipped(paused);
     }
-    
+
     /*///////////////////////////////////////////////////////////////
                             SAFECAST LOGIC
     //////////////////////////////////////////////////////////////*/
-    
+
     function _safeCastTo32(uint256 x) internal pure virtual returns (uint32) {
         if (x > type(uint32).max) revert Uint32max();
 
         return uint32(x);
     }
-    
+
     function _safeCastTo96(uint256 x) internal pure virtual returns (uint96) {
         if (x > type(uint96).max) revert Uint96max();
 
@@ -454,21 +532,27 @@ abstract contract KaliDAOtoken {
 /// @notice Helper utility that enables calling multiple local methods in a single call.
 /// @author Modified from Uniswap (https://github.com/Uniswap/v3-periphery/blob/main/contracts/base/Multicall.sol)
 abstract contract Multicall {
-    function multicall(bytes[] calldata data) public payable virtual returns (bytes[] memory results) {
+    function multicall(bytes[] calldata data)
+        public
+        payable
+        virtual
+        returns (bytes[] memory results)
+    {
         results = new bytes[](data.length);
-        
+
         // cannot realistically overflow on human timescales
         unchecked {
             for (uint256 i = 0; i < data.length; i++) {
-                (bool success, bytes memory result) = address(this).delegatecall(data[i]);
+                (bool success, bytes memory result) = address(this)
+                    .delegatecall(data[i]);
 
                 if (!success) {
                     if (result.length < 68) revert();
-                    
+
                     assembly {
                         result := add(result, 0x04)
                     }
-                    
+
                     revert(abi.decode(result, (string)));
                 }
                 results[i] = result;
@@ -497,7 +581,7 @@ abstract contract NFThelper {
     ) external pure returns (bytes4 sig) {
         sig = 0xf23a6e61; // 'onERC1155Received(address,address,uint256,uint256,bytes)'
     }
-    
+
     function onERC1155BatchReceived(
         address,
         address,
@@ -510,7 +594,7 @@ abstract contract NFThelper {
 }
 
 /// @notice Gas-optimized reentrancy protection.
-/// @author Modified from OpenZeppelin 
+/// @author Modified from OpenZeppelin
 /// (https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/security/ReentrancyGuard.sol)
 /// License-Identifier: MIT
 abstract contract ReentrancyGuard {
@@ -538,8 +622,8 @@ interface IKaliDAOextension {
     function setExtension(bytes calldata extensionData) external;
 
     function callExtension(
-        address account, 
-        uint256 amount, 
+        address account,
+        uint256 amount,
         bytes calldata extensionData
     ) external payable returns (bool mint, uint256 amountOut);
 }
@@ -551,22 +635,29 @@ contract KaliDAOv1 is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
     //////////////////////////////////////////////////////////////*/
 
     event NewProposal(
-        address indexed proposer, 
-        uint256 indexed proposal, 
-        ProposalType indexed proposalType, 
-        string description, 
-        address[] accounts, 
-        uint256[] amounts, 
+        address indexed proposer,
+        uint256 indexed proposal,
+        ProposalType indexed proposalType,
+        string description,
+        address[] accounts,
+        uint256[] amounts,
         bytes[] payloads
     );
 
     event ProposalCancelled(address indexed proposer, uint256 indexed proposal);
 
     event ProposalSponsored(address indexed sponsor, uint256 indexed proposal);
-    
-    event VoteCast(address indexed voter, uint256 indexed proposal, bool indexed approve);
 
-    event ProposalProcessed(uint256 indexed proposal, bool indexed didProposalPass);
+    event VoteCast(
+        address indexed voter,
+        uint256 indexed proposal,
+        bool indexed approve
+    );
+
+    event ProposalProcessed(
+        uint256 indexed proposal,
+        bool indexed didProposalPass
+    );
 
     /*///////////////////////////////////////////////////////////////
                             ERRORS
@@ -609,7 +700,7 @@ contract KaliDAOv1 is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
     string public docs;
 
     uint256 private currentSponsoredProposal;
-    
+
     uint256 public proposalCount;
 
     uint32 public votingPeriod;
@@ -619,10 +710,10 @@ contract KaliDAOv1 is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
     uint32 public quorum; // 1-100
 
     uint32 public supermajority; // 1-100
-    
-    bytes32 public constant VOTE_HASH = 
-        keccak256('SignVote(address signer,uint256 proposal,bool approve)');
-    
+
+    bytes32 public constant VOTE_HASH =
+        keccak256("SignVote(address signer,uint256 proposal,bool approve)");
+
     mapping(address => bool) public extensions;
 
     mapping(uint256 => Proposal) public proposals;
@@ -630,7 +721,7 @@ contract KaliDAOv1 is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
     mapping(uint256 => ProposalState) public proposalStates;
 
     mapping(ProposalType => VoteType) public proposalVoteTypes;
-    
+
     mapping(uint256 => mapping(address => bool)) public voted;
 
     mapping(address => uint256) public lastYesVote;
@@ -689,18 +780,21 @@ contract KaliDAOv1 is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
         address[] calldata voters_,
         uint256[] calldata shares_,
         uint32[16] memory govSettings_
-    ) public payable nonReentrant virtual {
-        if (extensions_.length != extensionsData_.length) revert NoArrayParity();
+    ) public payable virtual nonReentrant {
+        if (extensions_.length != extensionsData_.length)
+            revert NoArrayParity();
 
         if (votingPeriod != 0) revert Initialized();
 
-        if (govSettings_[0] == 0 || govSettings_[0] > 365 days) revert PeriodBounds();
+        if (govSettings_[0] == 0 || govSettings_[0] > 365 days)
+            revert PeriodBounds();
 
         if (govSettings_[1] > 365 days) revert PeriodBounds();
 
         if (govSettings_[2] > 100) revert QuorumMax();
 
-        if (govSettings_[3] <= 51 || govSettings_[3] > 100) revert SupermajorityBounds();
+        if (govSettings_[3] <= 51 || govSettings_[3] > 100)
+            revert SupermajorityBounds();
 
         KaliDAOtoken._init(name_, symbol_, paused_, voters_, shares_);
 
@@ -711,7 +805,9 @@ contract KaliDAOv1 is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
                     extensions[extensions_[i]] = true;
 
                     if (extensionsData_[i].length > 3) {
-                        (bool success, ) = extensions_[i].call(extensionsData_[i]);
+                        (bool success, ) = extensions_[i].call(
+                            extensionsData_[i]
+                        );
 
                         if (!success) revert InitCallFail();
                     }
@@ -720,13 +816,13 @@ contract KaliDAOv1 is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
         }
 
         docs = docs_;
-        
+
         votingPeriod = govSettings_[0];
 
         gracePeriod = govSettings_[1];
-        
+
         quorum = govSettings_[2];
-        
+
         supermajority = govSettings_[3];
 
         // set initial vote types
@@ -739,15 +835,17 @@ contract KaliDAOv1 is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
         proposalVoteTypes[ProposalType.VPERIOD] = VoteType(govSettings_[7]);
 
         proposalVoteTypes[ProposalType.GPERIOD] = VoteType(govSettings_[8]);
-        
+
         proposalVoteTypes[ProposalType.QUORUM] = VoteType(govSettings_[9]);
-        
-        proposalVoteTypes[ProposalType.SUPERMAJORITY] = VoteType(govSettings_[10]);
+
+        proposalVoteTypes[ProposalType.SUPERMAJORITY] = VoteType(
+            govSettings_[10]
+        );
 
         proposalVoteTypes[ProposalType.TYPE] = VoteType(govSettings_[11]);
-        
+
         proposalVoteTypes[ProposalType.PAUSE] = VoteType(govSettings_[12]);
-        
+
         proposalVoteTypes[ProposalType.EXTENSION] = VoteType(govSettings_[13]);
 
         proposalVoteTypes[ProposalType.ESCAPE] = VoteType(govSettings_[14]);
@@ -759,14 +857,23 @@ contract KaliDAOv1 is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
                             PROPOSAL LOGIC
     //////////////////////////////////////////////////////////////*/
 
-    function getProposalArrays(uint256 proposal) public view virtual returns (
-        address[] memory accounts, 
-        uint256[] memory amounts, 
-        bytes[] memory payloads
-    ) {
+    function getProposalArrays(uint256 proposal)
+        public
+        view
+        virtual
+        returns (
+            address[] memory accounts,
+            uint256[] memory amounts,
+            bytes[] memory payloads
+        )
+    {
         Proposal storage prop = proposals[proposal];
-        
-        (accounts, amounts, payloads) = (prop.accounts, prop.amounts, prop.payloads);
+
+        (accounts, amounts, payloads) = (
+            prop.accounts,
+            prop.amounts,
+            prop.payloads
+        );
     }
 
     function propose(
@@ -775,23 +882,34 @@ contract KaliDAOv1 is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
         address[] calldata accounts,
         uint256[] calldata amounts,
         bytes[] calldata payloads
-    ) public payable nonReentrant virtual returns (uint256 proposal) {
-        if (accounts.length != amounts.length || amounts.length != payloads.length) revert NoArrayParity();
-        
-        if (proposalType == ProposalType.VPERIOD) if (amounts[0] == 0 || amounts[0] > 365 days) revert PeriodBounds();
+    ) public payable virtual nonReentrant returns (uint256 proposal) {
+        if (
+            accounts.length != amounts.length ||
+            amounts.length != payloads.length
+        ) revert NoArrayParity();
 
-        if (proposalType == ProposalType.GPERIOD) if (amounts[0] > 365 days) revert PeriodBounds();
-        
-        if (proposalType == ProposalType.QUORUM) if (amounts[0] > 100) revert QuorumMax();
-        
-        if (proposalType == ProposalType.SUPERMAJORITY) if (amounts[0] <= 51 || amounts[0] > 100) revert SupermajorityBounds();
+        if (proposalType == ProposalType.VPERIOD)
+            if (amounts[0] == 0 || amounts[0] > 365 days) revert PeriodBounds();
 
-        if (proposalType == ProposalType.TYPE) if (amounts[0] > 11 || amounts[1] > 3 || amounts.length != 2) revert TypeBounds();
+        if (proposalType == ProposalType.GPERIOD)
+            if (amounts[0] > 365 days) revert PeriodBounds();
+
+        if (proposalType == ProposalType.QUORUM)
+            if (amounts[0] > 100) revert QuorumMax();
+
+        if (proposalType == ProposalType.SUPERMAJORITY)
+            if (amounts[0] <= 51 || amounts[0] > 100)
+                revert SupermajorityBounds();
+
+        if (proposalType == ProposalType.TYPE)
+            if (amounts[0] > 11 || amounts[1] > 3 || amounts.length != 2)
+                revert TypeBounds();
 
         bool selfSponsor;
 
         // if member or extension is making proposal, include sponsorship
-        if (balanceOf[msg.sender] != 0 || extensions[msg.sender]) selfSponsor = true;
+        if (balanceOf[msg.sender] != 0 || extensions[msg.sender])
+            selfSponsor = true;
 
         // cannot realistically overflow on human timescales
         unchecked {
@@ -815,10 +933,23 @@ contract KaliDAOv1 is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
 
         if (selfSponsor) currentSponsoredProposal = proposal;
 
-        emit NewProposal(msg.sender, proposal, proposalType, description, accounts, amounts, payloads);
+        emit NewProposal(
+            msg.sender,
+            proposal,
+            proposalType,
+            description,
+            accounts,
+            amounts,
+            payloads
+        );
     }
 
-    function cancelProposal(uint256 proposal) public payable nonReentrant virtual {
+    function cancelProposal(uint256 proposal)
+        public
+        payable
+        virtual
+        nonReentrant
+    {
         Proposal storage prop = proposals[proposal];
 
         if (msg.sender != prop.proposer) revert NotProposer();
@@ -830,7 +961,12 @@ contract KaliDAOv1 is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
         emit ProposalCancelled(msg.sender, proposal);
     }
 
-    function sponsorProposal(uint256 proposal) public payable nonReentrant virtual {
+    function sponsorProposal(uint256 proposal)
+        public
+        payable
+        virtual
+        nonReentrant
+    {
         Proposal storage prop = proposals[proposal];
 
         if (balanceOf[msg.sender] == 0) revert NotMember();
@@ -846,63 +982,62 @@ contract KaliDAOv1 is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
         prop.creationTime = _safeCastTo32(block.timestamp);
 
         emit ProposalSponsored(msg.sender, proposal);
-    } 
+    }
 
-    function vote(uint256 proposal, bool approve) public payable nonReentrant virtual {
+    function vote(uint256 proposal, bool approve)
+        public
+        payable
+        virtual
+        nonReentrant
+    {
         _vote(msg.sender, proposal, approve);
     }
-    
+
     function voteBySig(
-        address signer, 
-        uint256 proposal, 
-        bool approve, 
-        uint8 v, 
-        bytes32 r, 
+        address signer,
+        uint256 proposal,
+        bool approve,
+        uint8 v,
+        bytes32 r,
         bytes32 s
-    ) public payable nonReentrant virtual {
-        bytes32 digest =
-            keccak256(
-                abi.encodePacked(
-                    '\x19\x01',
-                    DOMAIN_SEPARATOR(),
-                    keccak256(
-                        abi.encode(
-                            VOTE_HASH,
-                            signer,
-                            proposal,
-                            approve
-                        )
-                    )
-                )
-            );
-            
+    ) public payable virtual nonReentrant {
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(VOTE_HASH, signer, proposal, approve))
+            )
+        );
+
         address recoveredAddress = ecrecover(digest, v, r, s);
 
-        if (recoveredAddress == address(0) || recoveredAddress != signer) revert InvalidSignature();
-        
+        if (recoveredAddress == address(0) || recoveredAddress != signer)
+            revert InvalidSignature();
+
         _vote(signer, proposal, approve);
     }
-    
+
     function _vote(
-        address signer, 
-        uint256 proposal, 
+        address signer,
+        uint256 proposal,
         bool approve
     ) internal virtual {
         Proposal storage prop = proposals[proposal];
 
         if (voted[proposal][signer]) revert AlreadyVoted();
-        
+
         // this is safe from overflow because `votingPeriod` is capped so it will not combine
         // with unix time to exceed the max uint256 value
         unchecked {
-            if (block.timestamp > prop.creationTime + votingPeriod) revert NotVoteable();
+            if (block.timestamp > prop.creationTime + votingPeriod)
+                revert NotVoteable();
         }
 
         uint96 weight = getPriorVotes(signer, prop.creationTime);
-        
+
         // this is safe from overflow because `yesVotes` and `noVotes` are capped by `totalSupply`
         // which is checked for overflow in `KaliDAOtoken` contract
-        unchecked { 
+        unchecked {
             if (approve) {
                 prop.yesVotes += weight;
 
@@ -911,90 +1046,107 @@ contract KaliDAOv1 is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
                 prop.noVotes += weight;
             }
         }
-        
+
         voted[proposal][signer] = true;
-        
+
         emit VoteCast(signer, proposal, approve);
     }
 
-    function processProposal(uint256 proposal) public payable nonReentrant virtual returns (
-        bool didProposalPass, bytes[] memory results
-    ) {
+    function processProposal(uint256 proposal)
+        public
+        payable
+        virtual
+        nonReentrant
+        returns (bool didProposalPass, bytes[] memory results)
+    {
         Proposal storage prop = proposals[proposal];
 
         VoteType voteType = proposalVoteTypes[prop.proposalType];
 
         if (prop.creationTime == 0) revert NotCurrentProposal();
-        
+
         // this is safe from overflow because `votingPeriod` and `gracePeriod` are capped so they will not combine
         // with unix time to exceed the max uint256 value
         unchecked {
-            if (block.timestamp <= prop.creationTime + votingPeriod + gracePeriod) revert VotingNotEnded();
+            if (
+                block.timestamp <=
+                prop.creationTime + votingPeriod + gracePeriod
+            ) revert VotingNotEnded();
         }
 
         // skip previous proposal processing requirement in case of escape hatch
-        if (prop.proposalType != ProposalType.ESCAPE) 
-            if (proposals[prop.prevProposal].creationTime != 0) revert PrevNotProcessed();
+        if (prop.proposalType != ProposalType.ESCAPE)
+            if (proposals[prop.prevProposal].creationTime != 0)
+                revert PrevNotProcessed();
 
         didProposalPass = _countVotes(voteType, prop.yesVotes, prop.noVotes);
-        
+
         if (didProposalPass) {
             // cannot realistically overflow on human timescales
             unchecked {
-                if (prop.proposalType == ProposalType.MINT) 
+                if (prop.proposalType == ProposalType.MINT)
                     for (uint256 i; i < prop.accounts.length; i++) {
                         _mint(prop.accounts[i], prop.amounts[i]);
                     }
-                    
-                if (prop.proposalType == ProposalType.BURN) 
+
+                if (prop.proposalType == ProposalType.BURN)
                     for (uint256 i; i < prop.accounts.length; i++) {
                         _burn(prop.accounts[i], prop.amounts[i]);
                     }
-                    
-                if (prop.proposalType == ProposalType.CALL) 
+
+                if (prop.proposalType == ProposalType.CALL)
                     for (uint256 i; i < prop.accounts.length; i++) {
                         results = new bytes[](prop.accounts.length);
-                        
-                        (, bytes memory result) = prop.accounts[i].call{value: prop.amounts[i]}
-                            (prop.payloads[i]);
-                        
+
+                        (, bytes memory result) = prop.accounts[i].call{
+                            value: prop.amounts[i]
+                        }(prop.payloads[i]);
+
                         results[i] = result;
                     }
-                    
+
                 // governance settings
-                if (prop.proposalType == ProposalType.VPERIOD) 
-                    if (prop.amounts[0] != 0) votingPeriod = uint32(prop.amounts[0]);
-                
-                if (prop.proposalType == ProposalType.GPERIOD) 
-                    if (prop.amounts[0] != 0) gracePeriod = uint32(prop.amounts[0]);
-                
-                if (prop.proposalType == ProposalType.QUORUM) 
+                if (prop.proposalType == ProposalType.VPERIOD)
+                    if (prop.amounts[0] != 0)
+                        votingPeriod = uint32(prop.amounts[0]);
+
+                if (prop.proposalType == ProposalType.GPERIOD)
+                    if (prop.amounts[0] != 0)
+                        gracePeriod = uint32(prop.amounts[0]);
+
+                if (prop.proposalType == ProposalType.QUORUM)
                     if (prop.amounts[0] != 0) quorum = uint32(prop.amounts[0]);
-                
-                if (prop.proposalType == ProposalType.SUPERMAJORITY) 
-                    if (prop.amounts[0] != 0) supermajority = uint32(prop.amounts[0]);
-                
-                if (prop.proposalType == ProposalType.TYPE) 
-                    proposalVoteTypes[ProposalType(prop.amounts[0])] = VoteType(prop.amounts[1]);
-                
-                if (prop.proposalType == ProposalType.PAUSE) 
-                    _flipPause();
-                
-                if (prop.proposalType == ProposalType.EXTENSION) 
+
+                if (prop.proposalType == ProposalType.SUPERMAJORITY)
+                    if (prop.amounts[0] != 0)
+                        supermajority = uint32(prop.amounts[0]);
+
+                if (prop.proposalType == ProposalType.TYPE)
+                    proposalVoteTypes[ProposalType(prop.amounts[0])] = VoteType(
+                        prop.amounts[1]
+                    );
+
+                if (prop.proposalType == ProposalType.PAUSE) _flipPause();
+
+                if (prop.proposalType == ProposalType.EXTENSION)
                     for (uint256 i; i < prop.accounts.length; i++) {
-                        if (prop.amounts[i] != 0) 
-                            extensions[prop.accounts[i]] = !extensions[prop.accounts[i]];
-                    
-                        if (prop.payloads[i].length > 3) IKaliDAOextension(prop.accounts[i])
-                            .setExtension(prop.payloads[i]);
+                        if (prop.amounts[i] != 0)
+                            extensions[prop.accounts[i]] = !extensions[
+                                prop.accounts[i]
+                            ];
+
+                        if (prop.payloads[i].length > 3)
+                            IKaliDAOextension(prop.accounts[i]).setExtension(
+                                prop.payloads[i]
+                            );
                     }
-                
+
                 if (prop.proposalType == ProposalType.ESCAPE)
                     delete proposals[prop.amounts[0]];
 
                 if (prop.proposalType == ProposalType.DOCS)
                     docs = prop.description;
-                
+
                 proposalStates[proposal].passed = true;
             }
         }
@@ -1015,10 +1167,13 @@ contract KaliDAOv1 is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
         if (yesVotes == 0 && noVotes == 0) return false;
 
         // rule out any failed quorums
-        if (voteType == VoteType.SIMPLE_MAJORITY_QUORUM_REQUIRED || voteType == VoteType.SUPERMAJORITY_QUORUM_REQUIRED) {
+        if (
+            voteType == VoteType.SIMPLE_MAJORITY_QUORUM_REQUIRED ||
+            voteType == VoteType.SUPERMAJORITY_QUORUM_REQUIRED
+        ) {
             uint256 minVotes = (totalSupply * quorum) / 100;
-            
-            // this is safe from overflow because `yesVotes` and `noVotes` 
+
+            // this is safe from overflow because `yesVotes` and `noVotes`
             // supply are checked in `KaliDAOtoken` contract
             unchecked {
                 uint256 votes = yesVotes + noVotes;
@@ -1026,11 +1181,14 @@ contract KaliDAOv1 is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
                 if (votes < minVotes) return false;
             }
         }
-        
+
         // simple majority check
-        if (voteType == VoteType.SIMPLE_MAJORITY || voteType == VoteType.SIMPLE_MAJORITY_QUORUM_REQUIRED) {
+        if (
+            voteType == VoteType.SIMPLE_MAJORITY ||
+            voteType == VoteType.SIMPLE_MAJORITY_QUORUM_REQUIRED
+        ) {
             if (yesVotes > noVotes) return true;
-        // supermajority check
+            // supermajority check
         } else {
             // example: 7 yes, 2 no, supermajority = 66
             // ((7+2) * 66) / 100 = 5.94; 7 yes will pass
@@ -1039,41 +1197,58 @@ contract KaliDAOv1 is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
             if (yesVotes >= minYes) return true;
         }
     }
-    
+
     /*///////////////////////////////////////////////////////////////
                             EXTENSIONS 
     //////////////////////////////////////////////////////////////*/
 
     receive() external payable virtual {}
 
-    modifier onlyExtension {
+    modifier onlyExtension() {
         if (!extensions[msg.sender]) revert NotExtension();
 
         _;
     }
 
     function callExtension(
-        address extension, 
-        uint256 amount, 
+        address extension,
+        uint256 amount,
         bytes calldata extensionData
-    ) public payable nonReentrant virtual returns (bool mint, uint256 amountOut) {
+    )
+        public
+        payable
+        virtual
+        nonReentrant
+        returns (bool mint, uint256 amountOut)
+    {
         if (!extensions[extension]) revert NotExtension();
-        
-        (mint, amountOut) = IKaliDAOextension(extension).callExtension{value: msg.value}
-            (msg.sender, amount, extensionData);
-        
+
+        (mint, amountOut) = IKaliDAOextension(extension).callExtension{
+            value: msg.value
+        }(msg.sender, amount, extensionData);
+
         if (mint) {
-            if (amountOut != 0) _mint(msg.sender, amountOut); 
+            if (amountOut != 0) _mint(msg.sender, amountOut);
         } else {
             if (amountOut != 0) _burn(msg.sender, amount);
         }
     }
 
-    function mintShares(address to, uint256 amount) public payable onlyExtension virtual {
+    function mintShares(address to, uint256 amount)
+        public
+        payable
+        virtual
+        onlyExtension
+    {
         _mint(to, amount);
     }
 
-    function burnShares(address from, uint256 amount) public payable onlyExtension virtual {
+    function burnShares(address from, uint256 amount)
+        public
+        payable
+        virtual
+        onlyExtension
+    {
         _burn(from, amount);
     }
 }
@@ -1086,12 +1261,12 @@ interface IRicardianLLC {
 /// @notice Factory to deploy Kali DAO.
 contract KaliDAOfactory is Multicall {
     event DAOdeployed(
-        KaliDAOv1 indexed kaliDAO, 
-        string name, 
-        string symbol, 
-        string docs, 
-        bool paused, 
-        address[] extensions, 
+        KaliDAOv1 indexed kaliDAO,
+        string name,
+        string symbol,
+        string docs,
+        bool paused,
+        address[] extensions,
         bytes[] extensionsData,
         address[] voters,
         uint256[] shares,
@@ -1109,7 +1284,7 @@ contract KaliDAOfactory is Multicall {
 
         ricardianLLC = ricardianLLC_;
     }
-    
+
     function deployKaliDAO(
         string memory name_,
         string memory symbol_,
@@ -1122,16 +1297,16 @@ contract KaliDAOfactory is Multicall {
         uint32[16] memory govSettings_
     ) public payable virtual returns (KaliDAOv1 kaliDAO) {
         kaliDAO = KaliDAOv1(_cloneAsMinimalProxy(kaliMaster, name_));
-        
+
         kaliDAO.init(
-            name_, 
-            symbol_, 
+            name_,
+            symbol_,
             docs_,
-            paused_, 
+            paused_,
             extensions_,
             extensionsData_,
-            voters_, 
-            shares_,  
+            voters_,
+            shares_,
             govSettings_
         );
 
@@ -1141,11 +1316,26 @@ contract KaliDAOfactory is Multicall {
             ricardianLLC.mintLLC{value: msg.value}(address(kaliDAO));
         }
 
-        emit DAOdeployed(kaliDAO, name_, symbol_, docs_, paused_, extensions_, extensionsData_, voters_, shares_, govSettings_);
+        emit DAOdeployed(
+            kaliDAO,
+            name_,
+            symbol_,
+            docs_,
+            paused_,
+            extensions_,
+            extensionsData_,
+            voters_,
+            shares_,
+            govSettings_
+        );
     }
 
     /// @dev modified from Aelin (https://github.com/AelinXYZ/aelin/blob/main/contracts/MinimalProxyFactory.sol)
-    function _cloneAsMinimalProxy(address payable base, string memory name_) internal virtual returns (address payable clone) {
+    function _cloneAsMinimalProxy(address payable base, string memory name_)
+        internal
+        virtual
+        returns (address payable clone)
+    {
         bytes memory createData = abi.encodePacked(
             // constructor
             bytes10(0x3d602d80600a3d3981f3),
