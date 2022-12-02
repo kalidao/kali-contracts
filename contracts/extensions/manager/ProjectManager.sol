@@ -1,25 +1,34 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity >=0.8.14;
- 
+
 /// @notice Sporos DAO project manager interface
 interface IProjectManagement {
-  /**
+    /**
         @notice a DAO authorized manager can order mint of tokens to contributors within the project limits.
      */
-  function mintShares(address to, uint256 amount) external payable;
- 
-  // Future versions will support tribute of work in exchange for tokens
-  // function submitTribute(address fromContributor, bytes[] nftTribute, uint256 requestedRewardAmount) external payable;
-  // function processTribute(address contributor, bytes[] nftTribute, uint256 rewardAmount) external payable;
+    function mintShares(address to, uint256 amount) external payable;
+
+    // Future versions will support tribute of work in exchange for tokens
+    // function submitTribute(address fromContributor, bytes[] nftTribute, uint256 requestedRewardAmount) external payable;
+    // function processTribute(address contributor, bytes[] nftTribute, uint256 rewardAmount) external payable;
 }
- 
+
+/// @notice Minimal ERC-20 interface
+interface IERC20minimal {
+    function balanceOf(address account) external view returns (uint256);
+
+    function totalSupply() external view returns (uint256);
+
+    function burnFrom(address from, uint256 amount) external;
+}
+
 abstract contract ReentrancyGuard {
     // Booleans are more expensive than uint256 or any type that takes up a full
     // word because each write operation emits an extra SLOAD to first read the
     // slot's contents, replace the bits taken up by the boolean, and then write
     // back. This is the compiler's defense against contract upgrades and
     // pointer aliasing, and it cannot be disabled.
- 
+
     // The values being non-zero value makes deployment a bit more expensive,
     // but in exchange the refund on every call to nonReentrant will be lower in
     // amount. Since refunds are capped to a percentage of the total
@@ -27,13 +36,13 @@ abstract contract ReentrancyGuard {
     // increase the likelihood of the full refund coming into effect.
     uint256 private constant _NOT_ENTERED = 1;
     uint256 private constant _ENTERED = 2;
- 
+
     uint256 private _status;
- 
+
     constructor() {
         _status = _NOT_ENTERED;
     }
- 
+
     /**
      * @dev Prevents a contract from calling itself, directly or indirectly.
      * Calling a `nonReentrant` function from another `nonReentrant`
@@ -44,12 +53,12 @@ abstract contract ReentrancyGuard {
     modifier nonReentrant() {
         // On the first call to nonReentrant, _notEntered will be true
         require(_status != _ENTERED, "ReentrancyGuard: reentrant call");
- 
+
         // Any calls to nonReentrant after this point will fail
         _status = _ENTERED;
- 
+
         _;
- 
+
         // By storing the original value once again, a refund is triggered (see
         // https://eips.ethereum.org/EIPS/eip-2200)
         _status = _NOT_ENTERED;
@@ -206,7 +215,7 @@ function safeTransferFrom(
 /// @title ProjectManager
 /// @notice Project Manger for KaliDAOs.
 /// @author ivelin.eth | sporosdao.eth
-/// @custom:coauthor audsssy.eth | KaliCo LLC
+/// @custom:coauthor audsssy.eth | kalidao.eth
 
 enum Reward {
     ETH,
@@ -215,13 +224,12 @@ enum Reward {
 }
 
 struct Project {
-    uint256 id; // unique project identifier
     address dao; // the address of the DAO that this project belongs to
     address manager; // manager assigned to this project
     Reward reward; // type of reward to reward contributions
     address token; // token used to reward contributions
     uint256 budget; // maximum allowed tokens the manager is authorized to mint
-    uint32 deadline; // deadline date of the project
+    uint40 deadline; // deadline date of the project
     string docs; // structured text referencing key docs for the manager's mandate
 }
 
@@ -229,21 +237,15 @@ contract ProjectManagement is ReentrancyGuard {
     /// -----------------------------------------------------------------------
     /// Events
     /// -----------------------------------------------------------------------
- 
-    event ExtensionSet(
-        address indexed dao,
-        Project project
-    );
- 
-    event ExtensionCalled(
-        address indexed dao,
-        bytes[] updates
-    );
- 
+
+    event ExtensionSet(address indexed dao, Project project);
+
+    event ExtensionCalled(address indexed dao, bytes[] updates);
+
     /// -----------------------------------------------------------------------
     /// Custom Errors
     /// -----------------------------------------------------------------------
- 
+
     error ProjectNotEnoughBudget();
 
     error ProjectExpired();
@@ -265,17 +267,16 @@ contract ProjectManagement is ReentrancyGuard {
     /// -----------------------------------------------------------------------
     /// Project Management Storage
     /// -----------------------------------------------------------------------
- 
+
     uint256 public projectId;
- 
+
     mapping(uint256 => Project) public projects;
- 
+
     /// -----------------------------------------------------------------------
     /// ProjectManager Logic
     /// -----------------------------------------------------------------------
     function setExtension(bytes calldata extensionData) external payable {
-         (
-            uint256 id,
+        (
             address manager,
             Reward reward,
             address token,
@@ -283,11 +284,12 @@ contract ProjectManagement is ReentrancyGuard {
             uint40 deadline,
             string memory docs
         ) = abi.decode(
-            extensionData,
-            (uint256, address, Reward, address, uint256, uint256, uint40, string)
-        );
- 
-        if (IERC20(msg.sender).balanceOf(manager) == 0) revert NotManager();
+                extensionData,
+                (address, Reward, address, uint256, uint40, string)
+            );
+
+        if (IERC20minimal(msg.sender).balanceOf(manager) == 0)
+            revert NotManager();
 
         unchecked {
             projectId++;
@@ -297,7 +299,6 @@ contract ProjectManagement is ReentrancyGuard {
             safeTransferETH(address(this), budget);
 
             projects[projectId] = Project({
-                id: id,
                 dao: msg.sender,
                 manager: manager,
                 reward: reward,
@@ -305,12 +306,11 @@ contract ProjectManagement is ReentrancyGuard {
                 budget: budget,
                 deadline: deadline,
                 docs: docs
-            })
-        } else if (reward == Reward.DAO){
-            safeTransferFrom(token, msg.sender, address(this), budget)
+            });
+        } else if (reward == Reward.DAO) {
+            safeTransferFrom(msg.sender, msg.sender, address(this), budget);
 
             projects[projectId] = Project({
-                id: id,
                 dao: msg.sender,
                 manager: manager,
                 reward: reward,
@@ -318,12 +318,11 @@ contract ProjectManagement is ReentrancyGuard {
                 budget: budget,
                 deadline: deadline,
                 docs: docs
-            })
+            });
         } else {
-            safeTransferFrom(token, msg.sender, address(this), budget)
+            safeTransferFrom(token, msg.sender, address(this), budget);
 
             projects[projectId] = Project({
-                id: id,
                 dao: msg.sender,
                 manager: manager,
                 reward: reward,
@@ -331,47 +330,45 @@ contract ProjectManagement is ReentrancyGuard {
                 budget: budget,
                 deadline: deadline,
                 docs: docs
-            })
+            });
         }
-  
-        emit ExtensionSet(project.dao, project);
+
+        emit ExtensionSet(projects[projectId].dao, projects[projectId]);
     }
- 
+
     function callExtension(address dao, bytes[] calldata extensionData)
         external
         payable
         nonReentrant
     {
-        for (uint256 i; i < extensionData.length;) {
-            (
-                uint256 projectId,
-                address contributor,
-                uint256 amount
-            ) = abi.decode(extensionData[i], (uint256, address, uint256));
- 
-            Project storage project = projects[projectId];
- 
-            if (project.id == 0) revert InvalidProject();
- 
-            if (project.manager != msg.sender) revert ForbiddenSenderNotManager();
- 
+        for (uint256 i; i < extensionData.length; ) {
+            (uint256 _projectId, address contributor, uint256 amount) = abi
+                .decode(extensionData[i], (uint256, address, uint256));
+
+            Project storage project = projects[_projectId];
+
+            if (project.dao == address(0)) revert InvalidProject();
+
+            if (project.manager != msg.sender)
+                revert ForbiddenSenderNotManager();
+
             if (project.deadline < block.timestamp) revert ProjectExpired();
- 
+
             if (project.budget < amount) revert ProjectNotEnoughBudget();
- 
+
             project.budget -= amount;
- 
+
             // console.log("(EVM)----> updated project budget:", project.budget);
- 
+
             if (project.token == dao) {
-                IProjectManagement(dao).mintShares(
+                IProjectManagement(dao).mintShares(contributor, amount);
+            } else {
+                safeTransferFrom(
+                    project.token,
+                    address(this),
                     contributor,
                     amount
                 );
-            } else if (IERC20(project.token).totalSupply() != 0){
-                IERC20(project.token).transferFrom(address(this), contributor, amount);
-            } else {
-                revert TokenNotFound();
             }
 
             // cannot realistically overflow
@@ -379,7 +376,7 @@ contract ProjectManagement is ReentrancyGuard {
                 ++i;
             }
         }
-  
+
         emit ExtensionCalled(dao, extensionData);
     }
 }
