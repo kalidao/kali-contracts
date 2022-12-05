@@ -223,8 +223,14 @@ enum Reward {
     ERC20
 }
 
+enum Status {
+    INACTIVE,
+    ACTIVE
+}
+
 struct Project {
     address dao; // the address of the DAO that this project belongs to
+    Status status; // project status 
     address manager; // manager assigned to this project
     Reward reward; // type of reward to reward contributions
     address token; // token used to reward contributions
@@ -238,31 +244,23 @@ contract ProjectManagement is ReentrancyGuard {
     /// Events
     /// -----------------------------------------------------------------------
 
-    event ExtensionSet(address indexed dao, Project project);
+    event ExtensionSet(Project project);
 
-    event ExtensionCalled(address indexed dao, bytes[] updates);
+    event ExtensionCalled(uint256 projectId, address indexed contributor, uint256 amount);
 
     /// -----------------------------------------------------------------------
     /// Custom Errors
     /// -----------------------------------------------------------------------
 
-    error ProjectNotEnoughBudget();
-
-    error ProjectExpired();
-
-    error NotManager();
+    error ExpiredProject();
 
     error InvalidProject();
 
+    error InactiveProject();
+
     error NotAuthorized();
 
-    error ForbiddenSenderNotManager();
-
-    error TokenNotSet();
-
-    error TokenNotFound();
-
-    error AmountInsufficient();
+    error InsufficientBudget();
 
     /// -----------------------------------------------------------------------
     /// Project Management Storage
@@ -275,68 +273,79 @@ contract ProjectManagement is ReentrancyGuard {
     /// -----------------------------------------------------------------------
     /// ProjectManager Logic
     /// -----------------------------------------------------------------------
-    function setExtension(bytes calldata extensionData) external payable {
-        (
-            address manager,
-            Reward reward,
-            address token,
-            uint256 budget,
-            uint40 deadline,
-            string memory docs
-        ) = abi.decode(
-                extensionData,
-                (address, Reward, address, uint256, uint40, string)
-            );
+    function setExtension(bytes[] calldata extensionData) external payable {
+        for (uint256 i; i < extensionData.length; ) {
+            (
+                Status status,
+                address manager,
+                Reward reward,
+                address token,
+                uint256 budget,
+                uint40 deadline,
+                string memory docs
+            ) = abi.decode(
+                    extensionData[i],
+                    (Status, address, Reward, address, uint256, uint40, string)
+                );
 
-        if (IERC20minimal(msg.sender).balanceOf(manager) == 0)
-            revert NotManager();
+            if (IERC20minimal(msg.sender).balanceOf(manager) == 0)
+                revert NotAuthorized();
 
-        unchecked {
-            projectId++;
+            unchecked {
+                projectId++;
+            }
+
+            if (reward == Reward.ETH) {
+                safeTransferETH(address(this), budget);
+
+                projects[projectId] = Project({
+                    dao: msg.sender,
+                    status: status,
+                    manager: manager,
+                    reward: reward,
+                    token: address(0),
+                    budget: budget,
+                    deadline: deadline,
+                    docs: docs
+                });
+            } else if (reward == Reward.DAO) {
+                safeTransferFrom(msg.sender, msg.sender, address(this), budget);
+
+                projects[projectId] = Project({
+                    dao: msg.sender,
+                    status: status,
+                    manager: manager,
+                    reward: reward,
+                    token: msg.sender,
+                    budget: budget,
+                    deadline: deadline,
+                    docs: docs
+                });
+            } else {
+                safeTransferFrom(token, msg.sender, address(this), budget);
+
+                projects[projectId] = Project({
+                    dao: msg.sender,
+                    status: status,
+                    manager: manager,
+                    reward: reward,
+                    token: token,
+                    budget: budget,
+                    deadline: deadline,
+                    docs: docs
+                });
+            }
+
+            // cannot realistically overflow
+            unchecked {
+                ++i;
+            }
+
+            emit ExtensionSet(projects[projectId]);
         }
-
-        if (reward == Reward.ETH) {
-            safeTransferETH(address(this), budget);
-
-            projects[projectId] = Project({
-                dao: msg.sender,
-                manager: manager,
-                reward: reward,
-                token: address(0),
-                budget: budget,
-                deadline: deadline,
-                docs: docs
-            });
-        } else if (reward == Reward.DAO) {
-            safeTransferFrom(msg.sender, msg.sender, address(this), budget);
-
-            projects[projectId] = Project({
-                dao: msg.sender,
-                manager: manager,
-                reward: reward,
-                token: msg.sender,
-                budget: budget,
-                deadline: deadline,
-                docs: docs
-            });
-        } else {
-            safeTransferFrom(token, msg.sender, address(this), budget);
-
-            projects[projectId] = Project({
-                dao: msg.sender,
-                manager: manager,
-                reward: reward,
-                token: token,
-                budget: budget,
-                deadline: deadline,
-                docs: docs
-            });
-        }
-
-        emit ExtensionSet(projects[projectId].dao, projects[projectId]);
     }
 
-    function callExtension(address dao, bytes[] calldata extensionData)
+    function callExtension(bytes[] calldata extensionData)
         external
         payable
         nonReentrant
@@ -349,19 +358,21 @@ contract ProjectManagement is ReentrancyGuard {
 
             if (project.dao == address(0)) revert InvalidProject();
 
-            if (project.manager != msg.sender)
-                revert ForbiddenSenderNotManager();
+            if (project.manager != project.dao || project.manager != msg.sender)
+                revert NotAuthorized();
 
-            if (project.deadline < block.timestamp) revert ProjectExpired();
+            if (project.status == Status.INACTIVE) revert InactiveProject();
 
-            if (project.budget < amount) revert ProjectNotEnoughBudget();
+            if (project.deadline < block.timestamp) revert ExpiredProject();
+
+            if (project.budget < amount) revert InsufficientBudget();
 
             project.budget -= amount;
 
-            // console.log("(EVM)----> updated project budget:", project.budget);
-
-            if (project.token == dao) {
-                IProjectManagement(dao).mintShares(contributor, amount);
+            if (project.reward == Reward.ETH) {
+                safeTransferETH(contributor, amount);
+            } else if (project.reward == Reward.DAO) {
+                IProjectManagement(project.dao).mintShares(contributor, amount);
             } else {
                 safeTransferFrom(
                     project.token,
@@ -375,8 +386,9 @@ contract ProjectManagement is ReentrancyGuard {
             unchecked {
                 ++i;
             }
+
+            emit ExtensionCalled(_projectId, contributor, amount);
         }
 
-        emit ExtensionCalled(dao, extensionData);
     }
 }
