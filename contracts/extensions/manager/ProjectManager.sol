@@ -244,8 +244,6 @@ contract ProjectManager is ReentrancyGuard {
 
             if (project.reward == Reward.ETH) {
                 safeTransferETH(contributor, amount);
-            } else if (project.reward == Reward.DAO) {
-                IKaliShareManager(project.account).mintShares(contributor, amount);
             } else {
                 safeTransfer(project.token, contributor, amount);
             }
@@ -287,7 +285,7 @@ contract ProjectManager is ReentrancyGuard {
                 docs: docs
             });
         } else if (reward == Reward.DAO) {
-            safeTransferFrom(msg.sender, msg.sender, address(this), budget);
+            IKaliShareManager(msg.sender).mintShares(address(this), budget);
 
             projects[projectId] = Project({
                 account: msg.sender,
