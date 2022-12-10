@@ -26,6 +26,46 @@ function safeTransferETH(address to, uint256 amount) {
     }
 }
 
+/// @dev The ERC20 `transfer` has failed.
+error TransferFailed();
+
+/// @dev Sends `amount` of ERC20 `token` from the current contract to `to`.
+/// Reverts upon failure.
+function safeTransfer(
+    address token,
+    address to,
+    uint256 amount
+) {
+    assembly {
+        // We'll write our calldata to this slot below, but restore it later.
+        let memPointer := mload(0x40)
+
+        // Write the abi-encoded calldata into memory, beginning with the function selector.
+        mstore(0x00, 0xa9059cbb)
+        mstore(0x20, to) // Append the "to" argument.
+        mstore(0x40, amount) // Append the "amount" argument.
+
+        if iszero(
+            and(
+                // Set success to whether the call reverted, if not we check it either
+                // returned exactly 1 (can't just be non-zero data), or had no return data.
+                or(eq(mload(0x00), 1), iszero(returndatasize())),
+                // We use 0x44 because that's the total length of our calldata (0x04 + 0x20 * 2)
+                // Counterintuitively, this call() must be positioned after the or() in the
+                // surrounding and() because and() evaluates its arguments from right to left.
+                call(gas(), token, 0, 0x1c, 0x44, 0x00, 0x20)
+            )
+        ) {
+            // Store the function selector of `TransferFailed()`.
+            mstore(0x00, 0x90b8ec18)
+            // Revert with (offset, size).
+            revert(0x1c, 0x04)
+        }
+
+        mstore(0x40, memPointer) // Restore the memPointer.
+    }
+}
+
 /// @dev The ERC20 `transferFrom` has failed.
 error TransferFromFailed();
 
@@ -131,6 +171,8 @@ contract ProjectManager is ReentrancyGuard {
 
     error InsufficientBudget();
 
+    error InvalidInput();
+
     /// -----------------------------------------------------------------------
     /// Project Management Storage
     /// -----------------------------------------------------------------------
@@ -143,38 +185,33 @@ contract ProjectManager is ReentrancyGuard {
     /// ProjectManager Logic
     /// -----------------------------------------------------------------------
 
-    function setExtension(bytes[] calldata extensionData) external payable {
-        for (uint256 i; i < extensionData.length; ) {
-            (
-                uint256 id,
-                Status status,
-                address manager,
-                Reward reward,
-                address token,
-                uint256 budget,
-                uint40 deadline,
-                string memory docs
-            ) = abi.decode(
-                extensionData[i],
-                (uint256, Status, address, Reward, address, uint256, uint40, string)
-            );
+    function setExtension(bytes calldata extensionData) external payable {
+        (
+            uint256 id,
+            Status status,
+            address manager,
+            Reward reward,
+            address token,
+            uint256 budget,
+            uint40 deadline,
+            string memory docs
+        ) = abi.decode(
+            extensionData,
+            (uint256, Status, address, Reward, address, uint256, uint40, string)
+        );
 
-            if (id == 0) {
-                unchecked {
-                    projectId++;
-                }   
-                if (!_setProject(status, manager, reward, token, budget, deadline, docs))
-                    revert SetupFailed(); 
-            } else {
-                if (status == Status.ACTIVE && manager != address(0)) revert InactiveProject();
-                if (!_updateProject(id, status, manager, reward, token, budget, deadline, docs)) 
-                    revert UpdateFailed();
-            }
-
-            // cannot realistically overflow
+        if (id == 0) {
             unchecked {
-                ++i;
-            }
+                projectId++;
+            }   
+            if (!_setProject(status, manager, reward, token, budget, deadline, docs))
+                revert SetupFailed(); 
+        } else {
+            if (projects[id].status == Status.INACTIVE && projects[id].account == address(0)) revert InactiveProject();
+            if (projects[id].account != msg.sender && projects[id].manager != msg.sender)
+                revert NotAuthorized();
+            if (!_updateProject(id, status, manager, reward, token, budget, deadline, docs)) 
+                revert UpdateFailed();
         }
     }
 
@@ -184,14 +221,14 @@ contract ProjectManager is ReentrancyGuard {
         nonReentrant
     {
         for (uint256 i; i < extensionData.length; ) {
-            (uint256 _projectId, address contributor, uint256 amount) = abi
-                .decode(extensionData[i], (uint256, address, uint256));
+            (uint256 _projectId, address contributor, uint256 amount) = 
+                abi.decode(extensionData[i], (uint256, address, uint256));
 
             Project storage project = projects[_projectId];
 
             if (project.account == address(0)) revert InvalidProject();
 
-            if (project.manager != project.account && project.manager != msg.sender)
+            if (project.account != msg.sender && project.manager != msg.sender)
                 revert NotAuthorized();
 
             if (project.status == Status.INACTIVE) revert InactiveProject();
@@ -200,7 +237,7 @@ contract ProjectManager is ReentrancyGuard {
 
             if (project.budget < amount) revert InsufficientBudget();
 
-            if (amount == 0) revert InsufficientBudget();
+            if (_projectId == 0 || contributor == address(0) || amount == 0) revert InvalidInput();
 
             project.budget -= amount;
             project.distributed += amount;
@@ -210,12 +247,7 @@ contract ProjectManager is ReentrancyGuard {
             } else if (project.reward == Reward.DAO) {
                 IKaliShareManager(project.account).mintShares(contributor, amount);
             } else {
-                safeTransferFrom(
-                    project.token,
-                    address(this),
-                    contributor,
-                    amount
-                );
+                safeTransfer(project.token, contributor, amount);
             }
 
             // cannot realistically overflow
