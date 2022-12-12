@@ -112,13 +112,14 @@ function safeTransferFrom(
     }
 }
 
+
 /// @title ProjectManager
 /// @notice Project Manger for on-chain entities.
 /// @author ivelin.eth | sporosdao.eth
 /// @custom:coauthor audsssy.eth | kalidao.eth
 
 enum Reward {
-    ETH,
+    ETH, 
     DAO,
     ERC20
 }
@@ -129,15 +130,15 @@ enum Status {
 }
 
 struct Project {
-    address account; // the address of the DAO that this project belongs to
-    Status status; // project status 
-    address manager; // manager assigned to this project
-    Reward reward; // type of reward to reward contributions
-    address token; // token used to reward contributions
-    uint256 budget; // maximum allowed tokens the manager is authorized to mint
-    uint256 distributed; // amount already distributed to contributors
-    uint40 deadline; // deadline date of the project
-    string docs; // structured text referencing key docs for the manager's mandate
+    address account; // The main address associated with a Project.
+    Status status; // The status of a Project. 
+    address manager; // The manager assigned to a Project.
+    Reward reward; // The type of contribution reward.
+    address token; // The token used to reward contributions.
+    uint256 budget; // The budget (maximum amount) a Manager is authorized to distribute.
+    uint256 distributed; // The amount already distributed to contributors.
+    uint40 deadline; // The deadline to distribute Reward by.
+    string docs; // The docs associated with a Project.
 }
 
 contract ProjectManager is ReentrancyGuard {
@@ -200,10 +201,7 @@ contract ProjectManager is ReentrancyGuard {
             (uint256, Status, address, Reward, address, uint256, uint40, string)
         );
 
-        if (id == 0) {
-            unchecked {
-                projectId++;
-            }   
+        if (id == 0) {            
             if (!_setProject(status, manager, reward, token, budget, deadline, docs))
                 revert SetupFailed(); 
         } else {
@@ -270,6 +268,11 @@ contract ProjectManager is ReentrancyGuard {
         uint40 deadline, 
         string memory docs
     ) internal returns(bool) {
+        // cannot realistically overflow
+        unchecked {
+            projectId++;
+        }   
+
         if (reward == Reward.ETH) {
             if (msg.value != budget || reward != Reward.ETH) revert InvalidEthReward();
 
