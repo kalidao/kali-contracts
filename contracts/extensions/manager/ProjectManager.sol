@@ -1,758 +1,352 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity >=0.8.14;
- 
-/// @notice Sporos DAO project manager interface
-interface IProjectManagement {
-  /**
-        @notice a DAO authorized manager can order mint of tokens to contributors within the project limits.
-     */
-  function mintShares(address to, uint256 amount) external payable;
- 
-  // Future versions will support tribute of work in exchange for tokens
-  // function submitTribute(address fromContributor, bytes[] nftTribute, uint256 requestedRewardAmount) external payable;
-  // function processTribute(address contributor, bytes[] nftTribute, uint256 rewardAmount) external payable;
-}
- 
- 
-/**
- * @dev Interface of the ERC20 standard as defined in the EIP.
- */
-interface IERC20 {
-    /**
-     * @dev Emitted when `value` tokens are moved from one account (`from`) to
-     * another (`to`).
-     *
-     * Note that `value` may be zero.
-     */
-    event Transfer(address indexed from, address indexed to, uint256 value);
- 
-    /**
-     * @dev Emitted when the allowance of a `spender` for an `owner` is set by
-     * a call to {approve}. `value` is the new allowance.
-     */
-    event Approval(address indexed owner, address indexed spender, uint256 value);
- 
-    /**
-     * @dev Returns the amount of tokens in existence.
-     */
-    function totalSupply() external view returns (uint256);
- 
-    /**
-     * @dev Returns the amount of tokens owned by `account`.
-     */
-    function balanceOf(address account) external view returns (uint256);
- 
-    /**
-     * @dev Moves `amount` tokens from the caller's account to `to`.
-     *
-     * Returns a boolean value indicating whether the operation succeeded.
-     *
-     * Emits a {Transfer} event.
-     */
-    function transfer(address to, uint256 amount) external returns (bool);
- 
-    /**
-     * @dev Returns the remaining number of tokens that `spender` will be
-     * allowed to spend on behalf of `owner` through {transferFrom}. This is
-     * zero by default.
-     *
-     * This value changes when {approve} or {transferFrom} are called.
-     */
-    function allowance(address owner, address spender) external view returns (uint256);
- 
-    /**
-     * @dev Sets `amount` as the allowance of `spender` over the caller's tokens.
-     *
-     * Returns a boolean value indicating whether the operation succeeded.
-     *
-     * IMPORTANT: Beware that changing an allowance with this method brings the risk
-     * that someone may use both the old and the new allowance by unfortunate
-     * transaction ordering. One possible solution to mitigate this race
-     * condition is to first reduce the spender's allowance to 0 and set the
-     * desired value afterwards:
-     * https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729
-     *
-     * Emits an {Approval} event.
-     */
-    function approve(address spender, uint256 amount) external returns (bool);
- 
-    /**
-     * @dev Moves `amount` tokens from `from` to `to` using the
-     * allowance mechanism. `amount` is then deducted from the caller's
-     * allowance.
-     *
-     * Returns a boolean value indicating whether the operation succeeded.
-     *
-     * Emits a {Transfer} event.
-     */
-    function transferFrom(
-        address from,
-        address to,
-        uint256 amount
-    ) external returns (bool);
-}
- 
- 
-abstract contract ReentrancyGuard {
-    // Booleans are more expensive than uint256 or any type that takes up a full
-    // word because each write operation emits an extra SLOAD to first read the
-    // slot's contents, replace the bits taken up by the boolean, and then write
-    // back. This is the compiler's defense against contract upgrades and
-    // pointer aliasing, and it cannot be disabled.
- 
-    // The values being non-zero value makes deployment a bit more expensive,
-    // but in exchange the refund on every call to nonReentrant will be lower in
-    // amount. Since refunds are capped to a percentage of the total
-    // transaction's gas, it is best to keep them low in cases like this one, to
-    // increase the likelihood of the full refund coming into effect.
-    uint256 private constant _NOT_ENTERED = 1;
-    uint256 private constant _ENTERED = 2;
- 
-    uint256 private _status;
- 
-    constructor() {
-        _status = _NOT_ENTERED;
-    }
- 
-    /**
-     * @dev Prevents a contract from calling itself, directly or indirectly.
-     * Calling a `nonReentrant` function from another `nonReentrant`
-     * function is not supported. It is possible to prevent this from happening
-     * by making the `nonReentrant` function external, and making it call a
-     * `private` function that does the actual work.
-     */
-    modifier nonReentrant() {
-        // On the first call to nonReentrant, _notEntered will be true
-        require(_status != _ENTERED, "ReentrancyGuard: reentrant call");
- 
-        // Any calls to nonReentrant after this point will fail
-        _status = _ENTERED;
- 
-        _;
- 
-        // By storing the original value once again, a refund is triggered (see
-        // https://eips.ethereum.org/EIPS/eip-2200)
-        _status = _NOT_ENTERED;
+
+import {IKaliShareManager} from '../../interfaces/IKaliShareManager.sol';
+import {IERC20minimal} from '../../interfaces/IERC20minimal.sol';
+import {ReentrancyGuard} from '../../utils/ReentrancyGuard.sol';
+
+/// @notice Safe ETH and ERC20 free function transfer collection that gracefully handles missing return values.
+/// @author Solbase (https://github.com/Sol-DAO/solbase/blob/main/src/utils/SafeTransfer.sol)
+/// @author Modified from Zolidity (https://github.com/z0r0z/zolidity/blob/main/src/utils/SafeTransfer.sol)
+
+/// @dev The ETH transfer has failed.
+error ETHTransferFailed();
+
+/// @dev Sends `amount` (in wei) ETH to `to`.
+/// Reverts upon failure.
+function safeTransferETH(address to, uint256 amount) {
+    assembly {
+        // Transfer the ETH and check if it succeeded or not.
+        if iszero(call(gas(), to, amount, 0, 0, 0, 0)) {
+            // Store the function selector of `ETHTransferFailed()`.
+            mstore(0x00, 0xb12d13eb)
+            // Revert with (offset, size).
+            revert(0x1c, 0x04)
+        }
     }
 }
- 
-/**
- * @dev Interface of the ERC165 standard, as defined in the
- * https://eips.ethereum.org/EIPS/eip-165[EIP].
- *
- * Implementers can declare support of contract interfaces, which can then be
- * queried by others ({ERC165Checker}).
- *
- * For an implementation, see {ERC165}.
- */
-interface IERC165 {
-    /**
-     * @dev Returns true if this contract implements the interface defined by
-     * `interfaceId`. See the corresponding
-     * https://eips.ethereum.org/EIPS/eip-165#how-interfaces-are-identified[EIP section]
-     * to learn more about how these ids are created.
-     *
-     * This function call must use less than 30 000 gas.
-     */
-    function supportsInterface(bytes4 interfaceId) external view returns (bool);
-}
- 
-/**
- * @dev Required interface of an ERC721 compliant contract.
- */
-interface IERC721 is IERC165 {
-    /**
-     * @dev Emitted when `tokenId` token is transferred from `from` to `to`.
-     */
-    event Transfer(address indexed from, address indexed to, uint256 indexed tokenId);
- 
-    /**
-     * @dev Emitted when `owner` enables `approved` to manage the `tokenId` token.
-     */
-    event Approval(address indexed owner, address indexed approved, uint256 indexed tokenId);
- 
-    /**
-     * @dev Emitted when `owner` enables or disables (`approved`) `operator` to manage all of its assets.
-     */
-    event ApprovalForAll(address indexed owner, address indexed operator, bool approved);
- 
-    /**
-     * @dev Returns the number of tokens in ``owner``'s account.
-     */
-    function balanceOf(address owner) external view returns (uint256 balance);
- 
-    /**
-     * @dev Returns the owner of the `tokenId` token.
-     *
-     * Requirements:
-     *
-     * - `tokenId` must exist.
-     */
-    function ownerOf(uint256 tokenId) external view returns (address owner);
- 
-    /**
-     * @dev Safely transfers `tokenId` token from `from` to `to`.
-     *
-     * Requirements:
-     *
-     * - `from` cannot be the zero address.
-     * - `to` cannot be the zero address.
-     * - `tokenId` token must exist and be owned by `from`.
-     * - If the caller is not `from`, it must be approved to move this token by either {approve} or {setApprovalForAll}.
-     * - If `to` refers to a smart contract, it must implement {IERC721Receiver-onERC721Received}, which is called upon a safe transfer.
-     *
-     * Emits a {Transfer} event.
-     */
-    function safeTransferFrom(
-        address from,
-        address to,
-        uint256 tokenId,
-        bytes calldata data
-    ) external;
- 
-    /**
-     * @dev Safely transfers `tokenId` token from `from` to `to`, checking first that contract recipients
-     * are aware of the ERC721 protocol to prevent tokens from being forever locked.
-     *
-     * Requirements:
-     *
-     * - `from` cannot be the zero address.
-     * - `to` cannot be the zero address.
-     * - `tokenId` token must exist and be owned by `from`.
-     * - If the caller is not `from`, it must have been allowed to move this token by either {approve} or {setApprovalForAll}.
-     * - If `to` refers to a smart contract, it must implement {IERC721Receiver-onERC721Received}, which is called upon a safe transfer.
-     *
-     * Emits a {Transfer} event.
-     */
-    function safeTransferFrom(
-        address from,
-        address to,
-        uint256 tokenId
-    ) external;
- 
-    /**
-     * @dev Transfers `tokenId` token from `from` to `to`.
-     *
-     * WARNING: Note that the caller is responsible to confirm that the recipient is capable of receiving ERC721
-     * or else they may be permanently lost. Usage of {safeTransferFrom} prevents loss, though the caller must
-     * understand this adds an external call which potentially creates a reentrancy vulnerability.
-     *
-     * Requirements:
-     *
-     * - `from` cannot be the zero address.
-     * - `to` cannot be the zero address.
-     * - `tokenId` token must be owned by `from`.
-     * - If the caller is not `from`, it must be approved to move this token by either {approve} or {setApprovalForAll}.
-     *
-     * Emits a {Transfer} event.
-     */
-    function transferFrom(
-        address from,
-        address to,
-        uint256 tokenId
-    ) external;
- 
-    /**
-     * @dev Gives permission to `to` to transfer `tokenId` token to another account.
-     * The approval is cleared when the token is transferred.
-     *
-     * Only a single account can be approved at a time, so approving the zero address clears previous approvals.
-     *
-     * Requirements:
-     *
-     * - The caller must own the token or be an approved operator.
-     * - `tokenId` must exist.
-     *
-     * Emits an {Approval} event.
-     */
-    function approve(address to, uint256 tokenId) external;
- 
-    /**
-     * @dev Approve or remove `operator` as an operator for the caller.
-     * Operators can call {transferFrom} or {safeTransferFrom} for any token owned by the caller.
-     *
-     * Requirements:
-     *
-     * - The `operator` cannot be the caller.
-     *
-     * Emits an {ApprovalForAll} event.
-     */
-    function setApprovalForAll(address operator, bool _approved) external;
- 
-    /**
-     * @dev Returns the account approved for `tokenId` token.
-     *
-     * Requirements:
-     *
-     * - `tokenId` must exist.
-     */
-    function getApproved(uint256 tokenId) external view returns (address operator);
- 
-    /**
-     * @dev Returns if the `operator` is allowed to manage all of the assets of `owner`.
-     *
-     * See {setApprovalForAll}
-     */
-    function isApprovedForAll(address owner, address operator) external view returns (bool);
-}
- 
-/// @notice A generic interface for a contract which properly accepts ERC721 tokens.
-/// @author Solmate (https://github.com/transmissions11/solmate/blob/main/src/tokens/ERC721.sol)
-abstract contract ERC721TokenReceiver {
-    function onERC721Received(
-        address,
-        address,
-        uint256,
-        bytes calldata
-    ) external virtual returns (bytes4) {
-        return ERC721TokenReceiver.onERC721Received.selector;
-    }
-}
- 
-/// @notice Modern and gas efficient ERC20 + EIP-2612 implementation.
-/// @author Solmate (https://github.com/transmissions11/solmate/blob/main/src/tokens/ERC20.sol)
-/// @author Modified from Uniswap (https://github.com/Uniswap/uniswap-v2-core/blob/master/contracts/UniswapV2ERC20.sol)
-/// @dev Do not manually set balances without updating totalSupply, as the sum of all user balances must not exceed it.
-contract ERC20 {
-    /*//////////////////////////////////////////////////////////////
-                                 EVENTS
-    //////////////////////////////////////////////////////////////*/
 
-    event Transfer(address indexed from, address indexed to, uint256 amount);
+/// @dev The ERC20 `transfer` has failed.
+error TransferFailed();
 
-    event Approval(address indexed owner, address indexed spender, uint256 amount);
+/// @dev Sends `amount` of ERC20 `token` from the current contract to `to`.
+/// Reverts upon failure.
+function safeTransfer(
+    address token,
+    address to,
+    uint256 amount
+) {
+    assembly {
+        // We'll write our calldata to this slot below, but restore it later.
+        let memPointer := mload(0x40)
 
-    /*//////////////////////////////////////////////////////////////
-                            METADATA STORAGE
-    //////////////////////////////////////////////////////////////*/
+        // Write the abi-encoded calldata into memory, beginning with the function selector.
+        mstore(0x00, 0xa9059cbb)
+        mstore(0x20, to) // Append the "to" argument.
+        mstore(0x40, amount) // Append the "amount" argument.
 
-    string public name;
-
-    string public symbol;
-
-    uint8 public immutable decimals;
-
-    /*//////////////////////////////////////////////////////////////
-                              ERC20 STORAGE
-    //////////////////////////////////////////////////////////////*/
-
-    uint256 public totalSupply;
-
-    mapping(address => uint256) public balanceOf;
-
-    mapping(address => mapping(address => uint256)) public allowance;
-
-    /*//////////////////////////////////////////////////////////////
-                            EIP-2612 STORAGE
-    //////////////////////////////////////////////////////////////*/
-
-    uint256 internal immutable INITIAL_CHAIN_ID;
-
-    bytes32 internal immutable INITIAL_DOMAIN_SEPARATOR;
-
-    mapping(address => uint256) public nonces;
-
-    /*//////////////////////////////////////////////////////////////
-                               CONSTRUCTOR
-    //////////////////////////////////////////////////////////////*/
-
-    constructor(
-        string memory _name,
-        string memory _symbol,
-        uint8 _decimals
-    ) {
-        name = _name;
-        symbol = _symbol;
-        decimals = _decimals;
-
-        INITIAL_CHAIN_ID = block.chainid;
-        INITIAL_DOMAIN_SEPARATOR = computeDomainSeparator();
-    }
-
-    /*//////////////////////////////////////////////////////////////
-                               ERC20 LOGIC
-    //////////////////////////////////////////////////////////////*/
-
-    function mint(address to, uint256 amount) public {
-        _mint(to, amount);
-    }
-
-    function approve(address spender, uint256 amount) public virtual returns (bool) {
-        allowance[msg.sender][spender] = amount;
-
-        emit Approval(msg.sender, spender, amount);
-
-        return true;
-    }
-
-    function transfer(address to, uint256 amount) public virtual returns (bool) {
-        balanceOf[msg.sender] -= amount;
-
-        // Cannot overflow because the sum of all user
-        // balances can't exceed the max uint256 value.
-        unchecked {
-            balanceOf[to] += amount;
+        if iszero(
+            and(
+                // Set success to whether the call reverted, if not we check it either
+                // returned exactly 1 (can't just be non-zero data), or had no return data.
+                or(eq(mload(0x00), 1), iszero(returndatasize())),
+                // We use 0x44 because that's the total length of our calldata (0x04 + 0x20 * 2)
+                // Counterintuitively, this call() must be positioned after the or() in the
+                // surrounding and() because and() evaluates its arguments from right to left.
+                call(gas(), token, 0, 0x1c, 0x44, 0x00, 0x20)
+            )
+        ) {
+            // Store the function selector of `TransferFailed()`.
+            mstore(0x00, 0x90b8ec18)
+            // Revert with (offset, size).
+            revert(0x1c, 0x04)
         }
 
-        emit Transfer(msg.sender, to, amount);
-
-        return true;
-    }
-
-    function transferFrom(
-        address from,
-        address to,
-        uint256 amount
-    ) public virtual returns (bool) {
-        uint256 allowed = allowance[from][msg.sender]; // Saves gas for limited approvals.
-
-        if (allowed != type(uint256).max) allowance[from][msg.sender] = allowed - amount;
-
-        balanceOf[from] -= amount;
-
-        // Cannot overflow because the sum of all user
-        // balances can't exceed the max uint256 value.
-        unchecked {
-            balanceOf[to] += amount;
-        }
-
-        emit Transfer(from, to, amount);
-
-        return true;
-    }
-
-    /*//////////////////////////////////////////////////////////////
-                             EIP-2612 LOGIC
-    //////////////////////////////////////////////////////////////*/
-
-    function permit(
-        address owner,
-        address spender,
-        uint256 value,
-        uint256 deadline,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) public virtual {
-        require(deadline >= block.timestamp, "PERMIT_DEADLINE_EXPIRED");
-
-        // Unchecked because the only math done is incrementing
-        // the owner's nonce which cannot realistically overflow.
-        unchecked {
-            address recoveredAddress = ecrecover(
-                keccak256(
-                    abi.encodePacked(
-                        "\x19\x01",
-                        DOMAIN_SEPARATOR(),
-                        keccak256(
-                            abi.encode(
-                                keccak256(
-                                    "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"
-                                ),
-                                owner,
-                                spender,
-                                value,
-                                nonces[owner]++,
-                                deadline
-                            )
-                        )
-                    )
-                ),
-                v,
-                r,
-                s
-            );
-
-            require(recoveredAddress != address(0) && recoveredAddress == owner, "INVALID_SIGNER");
-
-            allowance[recoveredAddress][spender] = value;
-        }
-
-        emit Approval(owner, spender, value);
-    }
-
-    function DOMAIN_SEPARATOR() public view virtual returns (bytes32) {
-        return block.chainid == INITIAL_CHAIN_ID ? INITIAL_DOMAIN_SEPARATOR : computeDomainSeparator();
-    }
-
-    function computeDomainSeparator() internal view virtual returns (bytes32) {
-        return
-            keccak256(
-                abi.encode(
-                    keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
-                    keccak256(bytes(name)),
-                    keccak256("1"),
-                    block.chainid,
-                    address(this)
-                )
-            );
-    }
-
-    /*//////////////////////////////////////////////////////////////
-                        INTERNAL MINT/BURN LOGIC
-    //////////////////////////////////////////////////////////////*/
-
-    function _mint(address to, uint256 amount) internal virtual {
-        totalSupply += amount;
-
-        // Cannot overflow because the sum of all user
-        // balances can't exceed the max uint256 value.
-        unchecked {
-            balanceOf[to] += amount;
-        }
-
-        emit Transfer(address(0), to, amount);
-    }
-
-    function _burn(address from, uint256 amount) internal virtual {
-        balanceOf[from] -= amount;
-
-        // Cannot underflow because a user's balance
-        // will never be larger than the total supply.
-        unchecked {
-            totalSupply -= amount;
-        }
-
-        emit Transfer(from, address(0), amount);
+        mstore(0x40, memPointer) // Restore the memPointer.
     }
 }
 
-/**
-    @notice Project management extension for KaliDAO
- 
-    DAO token holders aprove and activate Projects that authorize a specific project manager to
-    issue reward tokens to contributors in accordance with
-    the terms of the project:
-    - budget: A manager can order mint of DAO tokens up to a given budget.
-    - deadline: A manager cannot order token mints after the project deadline expires.
-    - goals: A manager is expected to act in accordance with the goals outlined in the DAO project proposal.
- 
-    A project's manager, reward token, budget, deadline and goals can be updated via DAO proposal.
- 
-    A project has exactly one manager. A manager may be assigned to 0, 1 or multiple projects.
- 
-    Modeled after KaliShareManager.sol
-    https://github.com/kalidao/kali-contracts/blob/main/contracts/extensions/manager/KaliShareManager.sol
- 
-    (c) 2022 sporosdao.eth & kalidao.eth
- 
-    @author ivelin.eth
-    @custom:coauthor audsssy.eth
- 
- */
-contract ProjectManagement is ReentrancyGuard {
+/// @dev The ERC20 `transferFrom` has failed.
+error TransferFromFailed();
+
+/// @dev Sends `amount` of ERC20 `token` from `from` to `to`.
+/// Reverts upon failure.
+///
+/// The `from` account must have at least `amount` approved for
+/// the current contract to manage.
+function safeTransferFrom(
+    address token,
+    address from,
+    address to,
+    uint256 amount
+) {
+    assembly {
+        // We'll write our calldata to this slot below, but restore it later.
+        let memPointer := mload(0x40)
+
+        // Write the abi-encoded calldata into memory, beginning with the function selector.
+        mstore(0x00, 0x23b872dd)
+        mstore(0x20, from) // Append the "from" argument.
+        mstore(0x40, to) // Append the "to" argument.
+        mstore(0x60, amount) // Append the "amount" argument.
+
+        if iszero(
+            and(
+                // Set success to whether the call reverted, if not we check it either
+                // returned exactly 1 (can't just be non-zero data), or had no return data.
+                or(eq(mload(0x00), 1), iszero(returndatasize())),
+                // We use 0x64 because that's the total length of our calldata (0x04 + 0x20 * 3)
+                // Counterintuitively, this call() must be positioned after the or() in the
+                // surrounding and() because and() evaluates its arguments from right to left.
+                call(gas(), token, 0, 0x1c, 0x64, 0x00, 0x20)
+            )
+        ) {
+            // Store the function selector of `TransferFromFailed()`.
+            mstore(0x00, 0x7939f424)
+            // Revert with (offset, size).
+            revert(0x1c, 0x04)
+        }
+
+        mstore(0x60, 0) // Restore the zero slot to zero.
+        mstore(0x40, memPointer) // Restore the memPointer.
+    }
+}
+
+
+/// @title ProjectManager
+/// @notice Project Manger for on-chain entities.
+/// @author ivelin.eth | sporosdao.eth
+/// @custom:coauthor audsssy.eth | kalidao.eth
+
+enum Reward {
+    ETH, 
+    DAO,
+    ERC20
+}
+
+enum Status {
+    INACTIVE,
+    ACTIVE
+}
+
+struct Project {
+    address account; // The main address associated with a Project.
+    Status status; // The status of a Project. 
+    address manager; // The manager assigned to a Project.
+    Reward reward; // The type of contribution reward.
+    address token; // The token used to reward contributions.
+    uint256 budget; // The budget (maximum amount) a Manager is authorized to distribute.
+    uint256 distributed; // The amount already distributed to contributors.
+    uint40 deadline; // The deadline to distribute Reward by.
+    string docs; // The docs associated with a Project.
+}
+
+contract ProjectManager is ReentrancyGuard {
     /// -----------------------------------------------------------------------
     /// Events
     /// -----------------------------------------------------------------------
- 
-    event ExtensionSet(
-        address indexed dao,
-        Project project
-    );
- 
-    event ExtensionCalled(
-        address indexed dao,
-        bytes[] updates
-    );
- 
+
+    event ExtensionSet(uint256 projectId, Project project);
+
+    event ProjectUpdated(uint256 projectId, Project project);
+
+    event ExtensionCalled(uint256 projectId, address indexed contributor, uint256 amount);
+
     /// -----------------------------------------------------------------------
-    /// Errors
+    /// Custom Errors
     /// -----------------------------------------------------------------------
- 
-    error ProjectNotEnoughBudget();
-    error ProjectExpired();
-    error ProjectManagerNeedsDaoTokens();
-    error ProjectUnknown();
-    error ForbiddenDifferentDao();
-    error ForbiddenSenderNotManager();
-    error TokenNotSet();
-    error TokenNotFound();
-    error AmountInsufficient();
- 
+
+    error SetupFailed();
+
+    error UpdateFailed();
+
+    error ExpiredProject();
+
+    error InvalidProject();
+
+    error InactiveProject();
+
+    error InvalidEthReward();
+
+    error NotAuthorized();
+
+    error InsufficientBudget();
+
+    error InvalidInput();
+
     /// -----------------------------------------------------------------------
     /// Project Management Storage
     /// -----------------------------------------------------------------------
- 
-    struct Project {
-        uint256 id; // unique project identifier
-        address dao; // the address of the DAO that this project belongs to
-        address manager; // manager assigned to this project
-        address token; // REWARD TOKEN
-        uint256 tokenId; // REWARD TOKEN ID
-        uint256 budget; // maximum allowed tokens the manager is authorized to mint
-        address rightsToken; // RIGHTS TOKEN USED IF NFT IS REWARD TOKEN
-        uint32 deadline; // deadline date of the project
-        string goals; // structured text referencing key goals for the manager's mandate
-    }
- 
-    // unique project id auto-increment
-    // Starts at 100 leaving 0-99 as reserved for potential future special use cases.
-    // 0 is reserved for a new project proposal that has not been processed and assigned an id yet.
-    uint256 public nextProjectId = 100;
- 
-    // project id -> Project mapping
+
+    uint256 public projectId;
+
     mapping(uint256 => Project) public projects;
- 
+
     /// -----------------------------------------------------------------------
-    /// Management Settings
+    /// ProjectManager Logic
     /// -----------------------------------------------------------------------
- 
-    /**
- 
-      @notice A DAO calls this method to activate an approved Project Proposal.
- 
-      @param extensionData : Contains DAO approved projects parameters; either new or existing project updates. New projects must have id of 0.
- 
-     */
+
     function setExtension(bytes calldata extensionData) external payable {
- 
-        // console.log("(EVM)---->: setExtension called by ", msg.sender);
         (
             uint256 id,
+            Status status,
             address manager,
+            Reward reward,
             address token,
-            uint256 tokenId,
             uint256 budget,
-            uint32 deadline,
-            string  memory goals
+            uint40 deadline,
+            string memory docs
         ) = abi.decode(
             extensionData,
-            (uint256, address, address, uint256, uint256, uint32, string)
+            (uint256, Status, address, Reward, address, uint256, uint40, string)
         );
- 
-        // A project maanger must be a trusted DAO token holder
-        if (IERC20(msg.sender).balanceOf(manager) == 0) revert ProjectManagerNeedsDaoTokens();
- 
-        Project memory projectUpdate;
-        projectUpdate.id = id;
-        projectUpdate.manager = manager;
-        projectUpdate.token = token;
-        projectUpdate.tokenId = tokenId;
-        projectUpdate.budget = budget;
-        projectUpdate.deadline = deadline;
-        projectUpdate.goals = goals;
-        projectUpdate.dao = msg.sender;
- 
-        if (token == address(0)) {
-            projectUpdate.token = projectUpdate.dao;
-            projectUpdate.tokenId = 0;
-        } else if (IERC20(token).totalSupply() != 0){
-            projectUpdate.token = token;
-            projectUpdate.tokenId = 0;
- 
-            IERC20(token).transferFrom(projectUpdate.dao, address(this), budget);
-        } else if (IERC721(token).ownerOf(tokenId) == projectUpdate.dao){
-            projectUpdate.token = token;
-            projectUpdate.tokenId = tokenId;
- 
-            IERC721(token).safeTransferFrom(projectUpdate.dao, address(this), tokenId);
+
+        if (id == 0) {            
+            if (!_setProject(status, manager, reward, token, budget, deadline, docs))
+                revert SetupFailed(); 
         } else {
-            revert TokenNotSet();
+            if (projects[id].status == Status.INACTIVE && projects[id].account == address(0)) revert InactiveProject();
+            if (projects[id].account != msg.sender && projects[id].manager != msg.sender)
+                revert NotAuthorized();
+            if (!_updateProject(id, status, manager, reward, token, budget, deadline, docs)) 
+                revert UpdateFailed();
         }
- 
-        Project memory savedProject;
- 
-        if (projectUpdate.id == 0) {
-            // id == 0 means new Project creation
-            // assign next id and auto increment id counter
-            projectUpdate.id = nextProjectId;
-            // cannot realistically overflow
-            unchecked {
-                ++nextProjectId;
-            }
-        } else {
-            savedProject = projects[projectUpdate.id];
-            // someone is trying to update a non-existent project
-            if (savedProject.id == 0) revert ProjectUnknown();
-            // someone is trying to update a project that belongs to a different DAO address
-            // only the DAO that created a project can modify it
-            if (savedProject.dao != projectUpdate.dao) revert ForbiddenDifferentDao();
-        }
-        // if all safety checks passed, create/update project
-        projects[projectUpdate.id] = projectUpdate;
- 
-        emit ExtensionSet(projectUpdate.dao, projectUpdate);
     }
- 
-    /// -----------------------------------------------------------------------
-    /// Project Management Logic
-    /// -----------------------------------------------------------------------
- 
-    /**
-        @notice An authorized project manager calls this method to order a DAO token mint to contributors.
- 
-        @param dao - the dao that the project manager is authorized to manage.
-        @param extensionData - contains a list of tuples: (project id, recipient contributor account, amount to mint).
-     */
-    function callExtension(address dao, bytes[] calldata extensionData)
+
+    function callExtension(bytes[] calldata extensionData)
         external
         payable
         nonReentrant
     {
-        // console.log("(EVM)---->: callExtension called. DAO address:", dao);
- 
-        for (uint256 i; i < extensionData.length;) {
-            // console.log("(EVM)----> i = ", i);
-            (
-                uint256 projectId,
-                address contributor,
-                uint256 amount
-            ) = abi.decode(extensionData[i], (uint256, address, uint256));
- 
-            Project storage project = projects[projectId];
- 
-            // console.log("(EVM)----> projectId, contributor, amount:", projectId, contributor, amount);
-            // console.log("(EVM)----> projectId, contributor, deliverable:", projectId, contributor, tribute);
- 
-            if (project.id == 0) revert ProjectUnknown();
- 
-            if (project.manager != msg.sender) revert ForbiddenSenderNotManager();
- 
-            if (project.deadline < block.timestamp) revert ProjectExpired();
- 
-            if (project.budget < amount) revert ProjectNotEnoughBudget();
- 
+        for (uint256 i; i < extensionData.length; ) {
+            (uint256 _projectId, address contributor, uint256 amount) = 
+                abi.decode(extensionData[i], (uint256, address, uint256));
+
+            Project storage project = projects[_projectId];
+
+            if (project.account == address(0)) revert InvalidProject();
+
+            if (project.account != msg.sender && project.manager != msg.sender)
+                revert NotAuthorized();
+
+            if (project.status == Status.INACTIVE) revert InactiveProject();
+
+            if (project.deadline < block.timestamp) revert ExpiredProject();
+
+            if (project.budget < amount) revert InsufficientBudget();
+
+            if (_projectId == 0 || contributor == address(0) || amount == 0) revert InvalidInput();
+
             project.budget -= amount;
- 
-            // console.log("(EVM)----> updated project budget:", project.budget);
- 
-            if (project.token == dao) {
-                IProjectManagement(dao).mintShares(
-                    contributor,
-                    amount
-                );
-            } else if (IERC20(project.token).totalSupply() != 0){
-                IERC20(project.token).transferFrom(address(this), contributor, amount);
-            } else if (IERC721(project.token).supportsInterface(0x80ac58cd)){
-                // mint NFT shards
-               if (project.rightsToken == address(0)) {
-                ERC20 token = new ERC20("pmToken", "PM", 18);
-                project.rightsToken = address(token);
-                token.mint(contributor, 1);
-               } else {
-                ERC20(project.rightsToken).mint(contributor, 1);
-               }
+            project.distributed += amount;
+
+            if (project.reward == Reward.ETH) {
+                safeTransferETH(contributor, amount);
             } else {
-                revert TokenNotFound();
+                safeTransfer(project.token, contributor, amount);
             }
 
             // cannot realistically overflow
             unchecked {
                 ++i;
             }
-        }
- 
-        // console.log("(EVM)----> firing event ExtensionCalled()");
- 
-        emit ExtensionCalled(dao, extensionData);
-    }
- 
-    // Claim NFT
-    function claim (uint256 projectId, address token, uint256 tokenId) external payable nonReentrant {
-        Project storage project = projects[projectId];
 
-        if (IERC20(project.rightsToken).balanceOf(msg.sender) != IERC20(token).totalSupply()) revert AmountInsufficient();
- 
-        IERC721(project.token).safeTransferFrom(address(this), msg.sender, tokenId);
+            emit ExtensionCalled(_projectId, contributor, amount);
+        }
+    }
+
+    /// -----------------------------------------------------------------------
+    /// Internal Functions
+    /// -----------------------------------------------------------------------
+    
+    function _setProject(
+        Status status, 
+        address manager, 
+        Reward reward, 
+        address token, 
+        uint256 budget, 
+        uint40 deadline, 
+        string memory docs
+    ) internal returns(bool) {
+        // cannot realistically overflow
+        unchecked {
+            projectId++;
+        }   
+
+        if (reward == Reward.ETH) {
+            if (msg.value != budget || reward != Reward.ETH) revert InvalidEthReward();
+
+            projects[projectId] = Project({
+                account: msg.sender,
+                status: status,
+                manager: manager,
+                reward: reward,
+                token: address(0),
+                budget: budget,
+                distributed: 0,
+                deadline: deadline,
+                docs: docs
+            });
+        } else if (reward == Reward.DAO) {
+            IKaliShareManager(msg.sender).mintShares(address(this), budget);
+
+            projects[projectId] = Project({
+                account: msg.sender,
+                status: status,
+                manager: manager,
+                reward: reward,
+                token: msg.sender,
+                budget: budget,
+                distributed: 0,
+                deadline: deadline,
+                docs: docs
+            });
+        } else {
+            safeTransferFrom(token, msg.sender, address(this), budget);
+
+            projects[projectId] = Project({
+                account: msg.sender,
+                status: status,
+                manager: manager,
+                reward: reward,
+                token: token,
+                budget: budget,
+                distributed: 0,
+                deadline: deadline,
+                docs: docs
+            });
+        }
+        
+        emit ExtensionSet(projectId, projects[projectId]);
+
+        return true;
+    }
+
+    function _updateProject(
+        uint256 id,
+        Status status, 
+        address manager, 
+        Reward reward, 
+        address token, 
+        uint256 budget, 
+        uint40 deadline, 
+        string memory docs
+    ) internal returns(bool) {
+
+        projects[id] = Project({
+            account: (msg.sender != projects[id].account) ? msg.sender : projects[id].account,
+            status: (status != projects[id].status) ? status : projects[id].status,
+            manager: (manager != projects[id].manager) ? manager : projects[id].manager,
+            reward: (reward != projects[id].reward) ? reward : projects[id].reward,
+            token: (token != projects[id].token) ? token : projects[id].token,
+            budget: (budget != projects[id].budget) ? budget : projects[id].budget,
+            distributed: projects[id].distributed,
+            deadline: (deadline != projects[id].deadline) ? deadline : projects[id].deadline,
+            docs: docs
+        });
+
+        emit ProjectUpdated(id, projects[id]);
+
+        return true;
     }
 }
