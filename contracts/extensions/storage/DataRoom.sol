@@ -50,21 +50,22 @@ contract DataRoom {
     /// -----------------------------------------------------------------------
 
     /// @notice Record data on-chain.
-    /// @param extensionData Data to be processed by DataRoom.
+    /// @param account Identifier of a Room.
+    /// @param data The data to record.
     /// @dev Calls are permissioned to those authorized to access a Room.
-    function setRecord(bytes calldata extensionData) 
+    function setRecord(
+        address account, 
+        string[] calldata data
+    ) 
         public 
         payable
         virtual
     {
-        (
-            address account,
-            string[] memory data
-        ) = abi.decode(
-            extensionData,
-            (address, string[])
-        );
-
+        // Initialize Room.
+        if (account == msg.sender && !authorized[account][msg.sender]) {
+            authorized[account][msg.sender] = true;
+        }
+        
         _authorized(account, msg.sender);
 
         for (uint256 i; i < data.length; ) {
@@ -93,31 +94,26 @@ contract DataRoom {
     }
 
     /// @notice Initialize a Room or authorize users to a Room.
-    /// @param extensionData Data to be processed by DataRoom.
+    /// @param account Identifier of a Room.
+    /// @param users Users to be authorized or deauthorized to access a Room.
+    /// @param authorize Authorization status.
     /// @dev Calls are permissioned to the authorized accounts of a Room.
     function setPermission(
-        bytes calldata extensionData
+        address account,
+        address[] memory users,
+        bool[] memory authorize
     ) 
         public 
         payable
         virtual
     {  
-        (
-            address account,
-            address[] memory users,
-            bool[] memory authorize
-        ) = abi.decode(
-            extensionData,
-            (address, address[], bool[])
-        );
-
         if (account == address(0)) revert InvalidRoom();
 
         // Initialize Room.
         if (account == msg.sender && !authorized[account][msg.sender]) {
             authorized[account][msg.sender] = true;
         }
-
+        
         _authorized(account, msg.sender);
 
         uint256 numUsers = users.length;
@@ -145,6 +141,7 @@ contract DataRoom {
 
     /// @notice Helper function to check access to a Room.
     /// @param account Identifier of a Room.
+    /// @param user The user in question.
     function _authorized(address account, address user) internal view virtual returns (bool) {
         if (authorized[account][user]) return true;
         else revert Unauthorized();
