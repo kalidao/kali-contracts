@@ -100,8 +100,8 @@ contract DataRoom {
     /// @dev Calls are permissioned to the authorized accounts of a Room.
     function setPermission(
         address account,
-        address[] memory users,
-        bool[] memory authorize
+        address[] calldata users,
+        bool[] calldata authorize
     ) 
         public 
         payable
