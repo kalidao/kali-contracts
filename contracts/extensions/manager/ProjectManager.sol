@@ -1,9 +1,28 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity >=0.8.14;
 
-import {IKaliShareManager} from '../../interfaces/IKaliShareManager.sol';
-import {IERC20minimal} from '../../interfaces/IERC20minimal.sol';
-import {ReentrancyGuard} from '../../utils/ReentrancyGuard.sol';
+/// @notice Kali DAO share manager interface
+interface IKaliShareManager {
+    function mintShares(address to, uint256 amount) external payable;
+    function burnShares(address from, uint256 amount) external payable;
+}
+
+/// @notice Gas optimized reentrancy protection for smart contracts
+/// @author Modified from Solmate (https://github.com/Rari-Capital/solmate/blob/main/src/utils/ReentrancyGuard.sol)
+/// License-Identifier: AGPL-3.0-only
+abstract contract ReentrancyGuard {
+    error Reentrancy();
+    
+    uint256 private locked = 1;
+
+    modifier nonReentrant() {
+        if (locked != 1) revert Reentrancy();
+        
+        locked = 2;
+        _;
+        locked = 1;
+    }
+}
 
 /// @notice Safe ETH and ERC20 free function transfer collection that gracefully handles missing return values.
 /// @author Solbase (https://github.com/Sol-DAO/solbase/blob/main/src/utils/SafeTransfer.sol)
@@ -112,7 +131,6 @@ function safeTransferFrom(
     }
 }
 
-
 /// @title ProjectManager
 /// @notice Project Manger for on-chain entities.
 /// @author ivelin.eth | sporosdao.eth
@@ -170,10 +188,12 @@ contract ProjectManager is ReentrancyGuard {
 
     error NotAuthorized();
 
+    error OnlyAccount();
+
     error InsufficientBudget();
 
     error InvalidInput();
-
+    
     /// -----------------------------------------------------------------------
     /// Project Management Storage
     /// -----------------------------------------------------------------------
@@ -208,7 +228,8 @@ contract ProjectManager is ReentrancyGuard {
             if (projects[id].status == Status.INACTIVE && projects[id].account == address(0)) revert InactiveProject();
             if (projects[id].account != msg.sender && projects[id].manager != msg.sender)
                 revert NotAuthorized();
-            if (!_updateProject(id, status, manager, reward, token, budget, deadline, docs)) 
+            if (projects[id].budget != budget && projects[id].account != msg.sender) revert OnlyAccount();
+            if (!_updateProject(id, status, manager, budget, deadline, docs)) 
                 revert UpdateFailed();
         }
     }
@@ -274,7 +295,7 @@ contract ProjectManager is ReentrancyGuard {
         }   
 
         if (reward == Reward.ETH) {
-            if (msg.value != budget || reward != Reward.ETH) revert InvalidEthReward();
+            if (msg.value != budget) revert InvalidEthReward();
 
             projects[projectId] = Project({
                 account: msg.sender,
@@ -325,21 +346,19 @@ contract ProjectManager is ReentrancyGuard {
     function _updateProject(
         uint256 id,
         Status status, 
-        address manager, 
-        Reward reward, 
-        address token, 
+        address manager,  
         uint256 budget, 
         uint40 deadline, 
         string memory docs
     ) internal returns(bool) {
 
         projects[id] = Project({
-            account: (msg.sender != projects[id].account) ? msg.sender : projects[id].account,
+            account: projects[id].account,
             status: (status != projects[id].status) ? status : projects[id].status,
             manager: (manager != projects[id].manager) ? manager : projects[id].manager,
-            reward: (reward != projects[id].reward) ? reward : projects[id].reward,
-            token: (token != projects[id].token) ? token : projects[id].token,
-            budget: (budget != projects[id].budget) ? budget : projects[id].budget,
+            reward: projects[id].reward,
+            token: projects[id].token,
+            budget: _handleUpdatedBudget(id, budget),
             distributed: projects[id].distributed,
             deadline: (deadline != projects[id].deadline) ? deadline : projects[id].deadline,
             docs: docs
@@ -348,5 +367,49 @@ contract ProjectManager is ReentrancyGuard {
         emit ProjectUpdated(id, projects[id]);
 
         return true;
+    }
+
+    function _handleUpdatedBudget(uint256 id, uint256 newBudget) internal returns(uint256) {
+        Reward _reward = projects[id].reward;
+        address _token = projects[id].token;
+        uint256 _budget = projects[id].budget;
+        uint256 diff;
+
+        if (newBudget != _budget) {
+            if (newBudget > _budget) {
+                // cannot realistically overflow 
+                unchecked{
+                    diff = newBudget - _budget;
+                }
+
+                if (_reward == Reward.ETH) {
+                    if (msg.value != diff) revert InvalidEthReward();
+                } else if (_reward == Reward.DAO) {
+                    IKaliShareManager(msg.sender).mintShares(address(this), diff);
+                } else {
+                    safeTransferFrom(_token, msg.sender, address(this), diff);
+                }
+
+                return newBudget;
+            } else {
+                // cannot realistically overflow 
+                unchecked {
+                    diff = _budget - newBudget;
+                }
+
+                if (_reward == Reward.ETH) {
+                    (bool success, ) = msg.sender.call{value: diff}('');
+                    if (!success) revert TransferFailed();
+                } else if (_reward == Reward.DAO) {
+                    IKaliShareManager(msg.sender).burnShares(address(this), diff);
+                } else {
+                    safeTransfer(_token, msg.sender, diff);
+                }
+
+                return newBudget;
+            }
+        } else {
+            return _budget;
+        }
     }
 }
