@@ -4,7 +4,6 @@ pragma solidity >=0.8.14;
 /// @notice Kali DAO share manager interface
 interface IKaliShareManager {
     function mintShares(address to, uint256 amount) external payable;
-    function burnShares(address from, uint256 amount) external payable;
 }
 
 /// @notice Gas optimized reentrancy protection for smart contracts
@@ -137,7 +136,6 @@ function safeTransferFrom(
 /// @custom:coauthor audsssy.eth | kalidao.eth
 
 enum Reward {
-    ETH, 
     DAO,
     ERC20
 }
@@ -184,11 +182,9 @@ contract ProjectManager is ReentrancyGuard {
 
     error InactiveProject();
 
-    error InvalidEthReward();
-
     error NotAuthorized();
 
-    error OnlyAccount();
+    error OnlyAccountCanUpdateBudget();
 
     error InsufficientBudget();
 
@@ -225,10 +221,10 @@ contract ProjectManager is ReentrancyGuard {
             if (!_setProject(status, manager, reward, token, budget, deadline, docs))
                 revert SetupFailed(); 
         } else {
-            if (projects[id].status == Status.INACTIVE && projects[id].account == address(0)) revert InactiveProject();
+            if (projects[id].account == address(0)) revert InactiveProject();
             if (projects[id].account != msg.sender && projects[id].manager != msg.sender)
                 revert NotAuthorized();
-            if (projects[id].budget != budget && projects[id].account != msg.sender) revert OnlyAccount();
+            if (projects[id].budget != budget && projects[id].account != msg.sender) revert OnlyAccountCanUpdateBudget();
             if (!_updateProject(id, status, manager, budget, deadline, docs)) 
                 revert UpdateFailed();
         }
@@ -261,8 +257,8 @@ contract ProjectManager is ReentrancyGuard {
             project.budget -= amount;
             project.distributed += amount;
 
-            if (project.reward == Reward.ETH) {
-                safeTransferETH(contributor, amount);
+            if (project.reward == Reward.DAO) {
+                IKaliShareManager(project.account).mintShares(contributor, amount);
             } else {
                 safeTransfer(project.token, contributor, amount);
             }
@@ -275,6 +271,8 @@ contract ProjectManager is ReentrancyGuard {
             emit ExtensionCalled(_projectId, contributor, amount);
         }
     }
+
+    receive() external payable {}
 
     /// -----------------------------------------------------------------------
     /// Internal Functions
@@ -294,23 +292,7 @@ contract ProjectManager is ReentrancyGuard {
             projectId++;
         }   
 
-        if (reward == Reward.ETH) {
-            if (msg.value != budget) revert InvalidEthReward();
-
-            projects[projectId] = Project({
-                account: msg.sender,
-                status: status,
-                manager: manager,
-                reward: reward,
-                token: address(0),
-                budget: budget,
-                distributed: 0,
-                deadline: deadline,
-                docs: docs
-            });
-        } else if (reward == Reward.DAO) {
-            IKaliShareManager(msg.sender).mintShares(address(this), budget);
-
+        if (reward == Reward.DAO) {
             projects[projectId] = Project({
                 account: msg.sender,
                 status: status,
@@ -382,13 +364,9 @@ contract ProjectManager is ReentrancyGuard {
                     diff = newBudget - _budget;
                 }
 
-                if (_reward == Reward.ETH) {
-                    if (msg.value != diff) revert InvalidEthReward();
-                } else if (_reward == Reward.DAO) {
-                    IKaliShareManager(msg.sender).mintShares(address(this), diff);
-                } else {
+                if (_reward == Reward.ERC20) 
                     safeTransferFrom(_token, msg.sender, address(this), diff);
-                }
+                
 
                 return newBudget;
             } else {
@@ -397,14 +375,8 @@ contract ProjectManager is ReentrancyGuard {
                     diff = _budget - newBudget;
                 }
 
-                if (_reward == Reward.ETH) {
-                    (bool success, ) = msg.sender.call{value: diff}('');
-                    if (!success) revert TransferFailed();
-                } else if (_reward == Reward.DAO) {
-                    IKaliShareManager(msg.sender).burnShares(address(this), diff);
-                } else {
+                if (_reward == Reward.ERC20) 
                     safeTransfer(_token, msg.sender, diff);
-                }
 
                 return newBudget;
             }
