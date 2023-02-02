@@ -157,7 +157,7 @@ struct Project {
     string docs; // The docs associated with a Project.
 }
 
-contract ProjectManager is ReentrancyGuard {
+contract KaliProjectManagement is ReentrancyGuard {
     /// -----------------------------------------------------------------------
     /// Events
     /// -----------------------------------------------------------------------
@@ -184,6 +184,8 @@ contract ProjectManager is ReentrancyGuard {
 
     error NotAuthorized();
 
+    error OnlyAccountCanUpdateManager();
+    
     error OnlyAccountCanUpdateBudget();
 
     error InsufficientBudget();
@@ -222,8 +224,8 @@ contract ProjectManager is ReentrancyGuard {
                 revert SetupFailed(); 
         } else {
             if (projects[id].account == address(0)) revert InactiveProject();
-            if (projects[id].account != msg.sender && projects[id].manager != msg.sender)
-                revert NotAuthorized();
+            if (projects[id].manager != manager && projects[id].account != msg.sender)
+                revert OnlyAccountCanUpdateManager();
             if (projects[id].budget != budget && projects[id].account != msg.sender) revert OnlyAccountCanUpdateBudget();
             if (!_updateProject(id, status, manager, budget, deadline, docs)) 
                 revert UpdateFailed();
@@ -240,25 +242,27 @@ contract ProjectManager is ReentrancyGuard {
                 abi.decode(extensionData[i], (uint256, address, uint256));
 
             Project storage project = projects[_projectId];
+            // Minimize gas by limiting storage access
+            address projectAccount = project.account;
+            uint256 projectBudget = project.budget;
 
-            if (project.account == address(0)) revert InvalidProject();
+            if (projectAccount == address(0)) revert InvalidProject();
 
-            if (project.account != msg.sender && project.manager != msg.sender)
+            if (projectAccount != msg.sender && project.manager != msg.sender)
                 revert NotAuthorized();
 
             if (project.status == Status.INACTIVE) revert InactiveProject();
 
             if (project.deadline < block.timestamp) revert ExpiredProject();
 
-            if (project.budget < amount) revert InsufficientBudget();
+            if (projectBudget < project.distributed || projectBudget < project.distributed + amount) revert InsufficientBudget();
 
             if (_projectId == 0 || contributor == address(0) || amount == 0) revert InvalidInput();
 
-            project.budget -= amount;
             project.distributed += amount;
 
             if (project.reward == Reward.DAO) {
-                IKaliShareManager(project.account).mintShares(contributor, amount);
+                IKaliShareManager(projectAccount).mintShares(contributor, amount);
             } else {
                 safeTransfer(project.token, contributor, amount);
             }
